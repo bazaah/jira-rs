@@ -4,9 +4,9 @@ use {
     std::fmt,
 };
 
-pub use opt_issues::IssueOptions;
+pub use issue::IssueOptions;
 
-mod opt_issues;
+mod issue;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase", untagged)]
