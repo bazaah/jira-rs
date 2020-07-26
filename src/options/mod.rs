@@ -52,14 +52,19 @@ pub(crate) trait ApiOptions {
     }
 }
 
-pub(crate) fn with_options<O>(request: RequestBuilder, options: &O) -> RequestBuilder
+pub(crate) fn with_options<O>(request: RequestBuilder, options: Option<&O>) -> RequestBuilder
 where
     O: ApiOptions,
 {
-    let valid = options.valid_options();
-    valid.iter().fold(request, |req: RequestBuilder, &opt| {
-        apply_option(req, opt, options)
-    })
+    match options {
+        Some(options) => {
+            let valid = options.valid_options();
+            valid.iter().fold(request, |req: RequestBuilder, &opt| {
+                apply_option(req, opt, options)
+            })
+        }
+        None => request,
+    }
 }
 
 fn apply_option<O>(request: RequestBuilder, visit: OptRef, options: &O) -> RequestBuilder

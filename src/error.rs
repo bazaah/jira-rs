@@ -2,7 +2,7 @@ use {
     reqwest::{Error as HttpError, StatusCode},
     serde::{Deserialize, Serialize},
     serde_json::{to_writer as json, to_writer_pretty as json_pretty},
-    std::{collections::BTreeMap, fmt, io},
+    std::{collections::HashMap, fmt, io},
     thiserror::Error,
     url::ParseError,
 };
@@ -37,7 +37,7 @@ pub struct ClientFault {
 pub struct ApiError {
     #[serde(rename = "errorMessages")]
     pub messages: Vec<String>,
-    pub errors: BTreeMap<String, String>,
+    pub errors: HashMap<String, String>,
 }
 
 impl fmt::Display for ApiError {

@@ -1,8 +1,9 @@
 use {
-    crate::error::{InitError, JiraError},
-    reqwest::{Client, Method, Request, RequestBuilder},
+    crate::error::{ApiError, ClientFault, InitError, JiraError},
+    reqwest::{Client, Method, RequestBuilder, Response},
+    serde::de::DeserializeOwned,
     std::sync::Arc,
-    url::{Position, Url},
+    url::{PathSegmentsMut, Position, Url},
 };
 
 #[derive(Debug, Clone)]
@@ -57,42 +58,71 @@ impl Jira {
         })
     }
 
-    fn get<F>(&self, handler: F) -> Result<Request, JiraError>
+    pub(crate) fn get<F>(&self, endpoint: &[&str], handler: F) -> Result<RequestBuilder, JiraError>
     where
         F: FnMut(RequestBuilder) -> Result<RequestBuilder, JiraError>,
     {
-        self.generate(Method::GET, handler)
+        self.generate(Method::GET, endpoint, handler)
     }
 
-    fn post<F>(&self, handler: F) -> Result<Request, JiraError>
+    pub(crate) fn post<F>(&self, endpoint: &[&str], handler: F) -> Result<RequestBuilder, JiraError>
     where
         F: FnMut(RequestBuilder) -> Result<RequestBuilder, JiraError>,
     {
-        self.generate(Method::POST, handler)
+        self.generate(Method::POST, endpoint, handler)
     }
 
-    fn put<F>(&self, handler: F) -> Result<Request, JiraError>
+    pub(crate) fn put<F>(&self, endpoint: &[&str], handler: F) -> Result<RequestBuilder, JiraError>
     where
         F: FnMut(RequestBuilder) -> Result<RequestBuilder, JiraError>,
     {
-        self.generate(Method::PUT, handler)
+        self.generate(Method::PUT, endpoint, handler)
     }
 
-    fn delete<F>(&self, handler: F) -> Result<Request, JiraError>
+    pub(crate) fn delete<F>(
+        &self,
+        endpoint: &[&str],
+        handler: F,
+    ) -> Result<RequestBuilder, JiraError>
     where
         F: FnMut(RequestBuilder) -> Result<RequestBuilder, JiraError>,
     {
-        self.generate(Method::DELETE, handler)
+        self.generate(Method::DELETE, endpoint, handler)
     }
 
-    fn generate<F>(&self, method: Method, handler: F) -> Result<Request, JiraError>
+    fn generate<F>(
+        &self,
+        method: Method,
+        endpoint: &[&str],
+        handler: F,
+    ) -> Result<RequestBuilder, JiraError>
     where
         F: FnMut(RequestBuilder) -> Result<RequestBuilder, JiraError>,
     {
         let mut handler = handler;
-        let request = handler(self.agent.request(method, self.remote.as_str()))?;
+        let mut base: Url = self.remote.as_ref().clone();
+        base.path_segments_mut()
+            .expect("Always have a valid pathable URL")
+            .extend(endpoint);
+
+        let request = handler(self.agent.request(method, base.as_str()))?;
         let request = self.auth.authorize(request)?;
 
-        request.build().map_err(Into::into)
+        Ok(request)
+    }
+}
+
+pub(crate) async fn parse_response<T>(response: Response) -> Result<T, JiraError>
+where
+    T: DeserializeOwned,
+{
+    match response.status() {
+        error if error.is_client_error() || error.is_server_error() => {
+            Err(JiraError::Fault(ClientFault {
+                code: error,
+                errors: response.json::<ApiError>().await?,
+            }))
+        }
+        _ => Ok(response.json::<T>().await?),
     }
 }
