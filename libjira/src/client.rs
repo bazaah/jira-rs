@@ -1,31 +1,13 @@
 use {
-    crate::error::{ApiError, ClientFault, InitError, JiraError},
-    reqwest::{Client, Method, RequestBuilder, Response},
+    crate::{
+        error::{ApiError, ClientFault, InitError, JiraError},
+        issue::Issues,
+    },
+    reqwest::{header, Client, Method, RequestBuilder},
     serde::de::DeserializeOwned,
     std::sync::Arc,
-    url::{PathSegmentsMut, Position, Url},
+    url::{Position, Url},
 };
-
-#[derive(Debug, Clone)]
-pub enum Authentication {
-    Basic(Arc<str>, Arc<str>),
-}
-
-impl Authentication {
-    pub fn basic<U, P>(username: U, password: P) -> Self
-    where
-        U: AsRef<str>,
-        P: AsRef<str>,
-    {
-        Self::Basic(Arc::from(username.as_ref()), Arc::from(password.as_ref()))
-    }
-
-    pub fn authorize(&self, request: RequestBuilder) -> Result<RequestBuilder, JiraError> {
-        match self {
-            Self::Basic(user, password) => Ok(request.basic_auth(user, Some(password))),
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Jira {
@@ -49,7 +31,7 @@ impl Jira {
         A: Into<Authentication>,
     {
         let base = &Url::parse(host.as_ref())?[..Position::BeforePath];
-        let remote = Url::parse(base)?.join("/rest/api/2/")?;
+        let remote = Url::parse(base)?.join("/rest/api/2")?;
 
         Ok(Self {
             agent: client,
@@ -58,32 +40,32 @@ impl Jira {
         })
     }
 
-    pub(crate) fn get<F>(&self, endpoint: &[&str], handler: F) -> Result<RequestBuilder, JiraError>
+    pub fn issues(&self) -> Issues {
+        Issues::new(&self)
+    }
+
+    pub(crate) fn get<F>(&self, endpoint: &[&str], handler: F) -> Result<JiraRequest, JiraError>
     where
         F: FnMut(RequestBuilder) -> Result<RequestBuilder, JiraError>,
     {
         self.generate(Method::GET, endpoint, handler)
     }
 
-    pub(crate) fn post<F>(&self, endpoint: &[&str], handler: F) -> Result<RequestBuilder, JiraError>
+    pub(crate) fn post<F>(&self, endpoint: &[&str], handler: F) -> Result<JiraRequest, JiraError>
     where
         F: FnMut(RequestBuilder) -> Result<RequestBuilder, JiraError>,
     {
         self.generate(Method::POST, endpoint, handler)
     }
 
-    pub(crate) fn put<F>(&self, endpoint: &[&str], handler: F) -> Result<RequestBuilder, JiraError>
+    pub(crate) fn put<F>(&self, endpoint: &[&str], handler: F) -> Result<JiraRequest, JiraError>
     where
         F: FnMut(RequestBuilder) -> Result<RequestBuilder, JiraError>,
     {
         self.generate(Method::PUT, endpoint, handler)
     }
 
-    pub(crate) fn delete<F>(
-        &self,
-        endpoint: &[&str],
-        handler: F,
-    ) -> Result<RequestBuilder, JiraError>
+    pub(crate) fn delete<F>(&self, endpoint: &[&str], handler: F) -> Result<JiraRequest, JiraError>
     where
         F: FnMut(RequestBuilder) -> Result<RequestBuilder, JiraError>,
     {
@@ -95,7 +77,7 @@ impl Jira {
         method: Method,
         endpoint: &[&str],
         handler: F,
-    ) -> Result<RequestBuilder, JiraError>
+    ) -> Result<JiraRequest, JiraError>
     where
         F: FnMut(RequestBuilder) -> Result<RequestBuilder, JiraError>,
     {
@@ -106,23 +88,65 @@ impl Jira {
             .extend(endpoint);
 
         let request = handler(self.agent.request(method, base.as_str()))?;
+        let request = request.header(header::ACCEPT, "application/json");
         let request = self.auth.authorize(request)?;
 
-        Ok(request)
+        Ok(request.into())
     }
 }
 
-pub(crate) async fn parse_response<T>(response: Response) -> Result<T, JiraError>
-where
-    T: DeserializeOwned,
-{
-    match response.status() {
-        error if error.is_client_error() || error.is_server_error() => {
-            Err(JiraError::Fault(ClientFault {
-                code: error,
-                errors: response.json::<ApiError>().await?,
-            }))
+pub(crate) struct JiraRequest {
+    inner: RequestBuilder,
+}
+
+impl JiraRequest {
+    pub(crate) fn retrieve<T>(self) -> impl std::future::Future<Output = Result<T, JiraError>>
+    where
+        T: DeserializeOwned,
+    {
+        self.parse_inner()
+    }
+
+    async fn parse_inner<T>(self) -> Result<T, JiraError>
+    where
+        T: DeserializeOwned,
+    {
+        let response = self.inner.send().await?;
+        match response.status() {
+            error if error.is_client_error() || error.is_server_error() => {
+                Err(JiraError::Fault(ClientFault {
+                    code: error,
+                    errors: response.json::<ApiError>().await?,
+                }))
+            }
+            _ => Ok(response.json::<T>().await?),
         }
-        _ => Ok(response.json::<T>().await?),
+    }
+}
+
+impl From<RequestBuilder> for JiraRequest {
+    fn from(inner: RequestBuilder) -> Self {
+        JiraRequest { inner }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Authentication {
+    Basic(Arc<str>, Arc<str>),
+}
+
+impl Authentication {
+    pub fn basic<U, P>(username: U, password: P) -> Self
+    where
+        U: AsRef<str>,
+        P: AsRef<str>,
+    {
+        Self::Basic(Arc::from(username.as_ref()), Arc::from(password.as_ref()))
+    }
+
+    pub fn authorize(&self, request: RequestBuilder) -> Result<RequestBuilder, JiraError> {
+        match self {
+            Self::Basic(user, password) => Ok(request.basic_auth(user, Some(password))),
+        }
     }
 }

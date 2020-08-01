@@ -1,13 +1,8 @@
-pub use crate::models::issue as models;
-pub use crate::options::IssueOptions;
+pub use crate::{models::issue as models, options::issue as options};
 
 use {
-    crate::{
-        client::{parse_response, Jira},
-        error::JiraError,
-        options::with_options,
-    },
-    models::IssueResponse,
+    crate::{client::Jira, error::JiraError, options::with_options},
+    models::{Issue, IssueSearch},
     reqwest::{header, RequestBuilder},
 };
 
@@ -23,27 +18,24 @@ impl Issues {
         }
     }
 
-    pub async fn get<T>(
-        &self,
-        key: T,
-        options: Option<&IssueOptions>,
-    ) -> Result<IssueResponse, JiraError>
+    pub async fn get<K>(&self, key: K, options: Option<&options::Get>) -> Result<Issue, JiraError>
     where
-        T: AsRef<str>,
+        K: AsRef<str>,
     {
-        let handler = |req: RequestBuilder| {
-            let req = req.header(header::ACCEPT, "application/json");
-            let req = with_options(req, options);
+        let handler = |req: RequestBuilder| Ok(with_options(req, options));
 
-            Ok(req)
-        };
-
-        let response = self
-            .agent
+        self.agent
             .get(&["issue", key.as_ref()], handler)?
-            .send()
-            .await?;
+            .retrieve()
+            .await
+    }
 
-        parse_response(response).await
+    pub async fn search(
+        &self,
+        options: Option<&options::Search>,
+    ) -> Result<IssueSearch, JiraError> {
+        let handler = |req| Ok(with_options(req, options));
+
+        self.agent.get(&["search"], handler)?.retrieve().await
     }
 }

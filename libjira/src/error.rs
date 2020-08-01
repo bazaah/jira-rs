@@ -36,8 +36,11 @@ pub struct ClientFault {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ApiError {
     #[serde(rename = "errorMessages")]
-    pub messages: Vec<String>,
-    pub errors: HashMap<String, String>,
+    pub messages: Option<Vec<String>>,
+    pub errors: Option<HashMap<String, String>>,
+
+    #[serde(flatten)]
+    pub other: serde_json::Value,
 }
 
 impl fmt::Display for ApiError {

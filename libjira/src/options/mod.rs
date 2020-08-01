@@ -4,9 +4,7 @@ use {
     std::fmt,
 };
 
-pub use issue::IssueOptions;
-
-mod issue;
+pub mod issue;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase", untagged)]
@@ -48,6 +46,10 @@ pub(crate) trait ApiOptions {
     }
 
     fn fields_by_key(&self) -> Option<bool> {
+        None
+    }
+
+    fn update_history(&self) -> Option<bool> {
         None
     }
 }
@@ -125,6 +127,13 @@ where
                 .map(|o| [(queryKey::FIELDS_BY_KEY, o)])
                 .as_ref(),
         ),
+        OptRef::UpdateHistory => add_query(
+            request,
+            options
+                .update_history()
+                .map(|o| [(queryKey::UPDATE_HISTORY, o)])
+                .as_ref(),
+        ),
     }
 }
 
@@ -150,6 +159,7 @@ pub(crate) enum OptRef {
     Expand,
     Properties,
     FieldsByKey,
+    UpdateHistory,
 }
 
 #[derive(Debug)]
@@ -190,6 +200,7 @@ impl<'a> Serialize for CommaDelimited<'a> {
     }
 }
 
+#[allow(non_snake_case)]
 mod queryKey {
     pub(super) const JQL: &'static str = "jql";
     pub(super) const START_AT: &'static str = "startAt";
@@ -199,4 +210,5 @@ mod queryKey {
     pub(super) const EXPAND: &'static str = "expand";
     pub(super) const PROPERTIES: &'static str = "properties";
     pub(super) const FIELDS_BY_KEY: &'static str = "fieldsByKeys";
+    pub(super) const UPDATE_HISTORY: &'static str = "updateHistory";
 }

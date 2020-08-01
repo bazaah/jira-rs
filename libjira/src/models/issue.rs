@@ -6,7 +6,7 @@ use {
 };
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct IssueResponse {
+pub struct IssueSearch {
     pub expand: String,
     #[serde(rename = "maxResults")]
     pub max_results: u64,
