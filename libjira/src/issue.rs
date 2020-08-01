@@ -3,18 +3,18 @@ pub use crate::{models::issue as models, options::issue as options};
 use {
     crate::{client::Jira, error::JiraError, options::with_options},
     models::{Issue, IssueSearch},
-    reqwest::{header, RequestBuilder},
+    reqwest::RequestBuilder,
 };
 
 #[derive(Debug, Clone)]
 pub struct Issues {
-    agent: Jira,
+    client: Jira,
 }
 
 impl Issues {
-    pub fn new(jira: &Jira) -> Self {
+    pub fn new(client: &Jira) -> Self {
         Self {
-            agent: jira.clone(),
+            client: client.clone(),
         }
     }
 
@@ -24,7 +24,7 @@ impl Issues {
     {
         let handler = |req: RequestBuilder| Ok(with_options(req, options));
 
-        self.agent
+        self.client
             .get(&["issue", key.as_ref()], handler)?
             .retrieve()
             .await
@@ -36,6 +36,6 @@ impl Issues {
     ) -> Result<IssueSearch, JiraError> {
         let handler = |req| Ok(with_options(req, options));
 
-        self.agent.get(&["search"], handler)?.retrieve().await
+        self.client.get(&["search"], handler)?.retrieve().await
     }
 }
