@@ -18,7 +18,11 @@ impl Issues {
         }
     }
 
-    pub async fn get<K>(&self, key: K, options: Option<&options::Get>) -> Result<Issue, JiraError>
+    pub async fn get<K>(
+        &self,
+        key: K,
+        options: Option<&options::Get<'_>>,
+    ) -> Result<Issue, JiraError>
     where
         K: AsRef<str>,
     {
@@ -30,9 +34,10 @@ impl Issues {
             .await
     }
 
-    pub async fn search(&self, options: Option<&options::Search>) -> Result<Search, JiraError> {
+    pub async fn search(&self, options: Option<&options::Search<'_>>) -> Result<Search, JiraError> {
         let handler = |req| Ok(with_options(req, options));
 
         self.client.get(&["search"], handler)?.retrieve().await
     }
 }
+

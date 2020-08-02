@@ -1,4 +1,5 @@
 use {
+    crate::models::smol_cow::SmolCow,
     reqwest::RequestBuilder,
     serde::{Serialize, Serializer},
     std::fmt,
@@ -50,15 +51,15 @@ pub(crate) trait ApiOptions {
         None
     }
 
-    fn with_fields(&self) -> Option<&[String]> {
+    fn with_fields(&self) -> Option<&[SmolCow<str>]> {
         None
     }
 
-    fn expand(&self) -> Option<&[String]> {
+    fn expand(&self) -> Option<&[SmolCow<str>]> {
         None
     }
 
-    fn properties(&self) -> Option<&[String]> {
+    fn properties(&self) -> Option<&[SmolCow<str>]> {
         None
     }
 
@@ -181,11 +182,11 @@ pub(crate) enum OptRef {
 
 #[derive(Debug)]
 struct CommaDelimited<'a> {
-    inner: &'a [String],
+    inner: &'a [SmolCow<'a, str>],
 }
 
 impl<'a> CommaDelimited<'a> {
-    fn new(inner: &'a [String]) -> Self {
+    fn new(inner: &'a [SmolCow<'a, str>]) -> Self {
         Self { inner }
     }
 }

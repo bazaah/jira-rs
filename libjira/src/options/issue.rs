@@ -3,27 +3,45 @@ use super::*;
 pub use super::ValidateQuery;
 
 #[derive(Debug, Default, Clone)]
-pub struct Get {
-    pub with_fields: Option<Vec<String>>,
-    pub expand: Option<Vec<String>>,
-    pub fields_by_key: Option<bool>,
-    pub properties: Option<Vec<String>>,
-    pub update_history: Option<bool>,
+pub struct Get<'a> {
+    with_fields: Option<Vec<SmolCow<'a, str>>>,
+    expand: Option<Vec<SmolCow<'a, str>>>,
+    fields_by_key: Option<bool>,
+    properties: Option<Vec<SmolCow<'a, str>>>,
+    update_history: Option<bool>,
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct Search {
-    pub jql: Option<String>,
-    pub start_at: Option<u32>,
-    pub max_results: Option<u32>,
-    pub validate: Option<ValidateQuery>,
-    pub with_fields: Option<Vec<String>>,
-    pub expand: Option<Vec<String>>,
-    pub properties: Option<Vec<String>>,
-    pub fields_by_key: Option<bool>,
+pub struct Search<'a> {
+    jql: Option<SmolCow<'a, str>>,
+    start_at: Option<u32>,
+    max_results: Option<u32>,
+    validate: Option<ValidateQuery>,
+    with_fields: Option<Vec<SmolCow<'a, str>>>,
+    expand: Option<Vec<SmolCow<'a, str>>>,
+    properties: Option<Vec<SmolCow<'a, str>>>,
+    fields_by_key: Option<bool>,
 }
 
-impl Get {
+impl Get<'static> {
+    pub fn into_owned<'a>(get: Get<'a>) -> Self {
+        Get {
+            with_fields: get
+                .with_fields
+                .map(|v| v.into_iter().map(|s| SmolCow::Owned(s.to_smol())).collect()),
+            expand: get
+                .expand
+                .map(|v| v.into_iter().map(|s| SmolCow::Owned(s.to_smol())).collect()),
+            fields_by_key: get.fields_by_key,
+            properties: get
+                .properties
+                .map(|v| v.into_iter().map(|s| SmolCow::Owned(s.to_smol())).collect()),
+            update_history: get.update_history,
+        }
+    }
+}
+
+impl<'a> Get<'a> {
     const VALID: [OptRef; 5] = [
         OptRef::WithFields,
         OptRef::Expand,
@@ -36,21 +54,30 @@ impl Get {
         Self::default()
     }
 
-    pub fn with_fields(self, fields: Vec<String>) -> Self {
+    pub fn with_fields<T: 'a>(self, fields: &'a [T]) -> Self
+    where
+        T: AsRef<str>,
+    {
         let mut this = self;
-        this.with_fields = Some(fields);
+        this.with_fields = Some(fields.iter().map(|s| s.as_ref().into()).collect());
         this
     }
 
-    pub fn expand(self, expand: Vec<String>) -> Self {
+    pub fn expand<T: 'a>(self, expand: &'a [T]) -> Self
+    where
+        T: AsRef<str>,
+    {
         let mut this = self;
-        this.expand = Some(expand);
+        this.expand = Some(expand.iter().map(|s| s.as_ref().into()).collect());
         this
     }
 
-    pub fn properties(self, properties: Vec<String>) -> Self {
+    pub fn properties<T: 'a>(self, properties: &'a [T]) -> Self
+    where
+        T: AsRef<str>,
+    {
         let mut this = self;
-        this.properties = Some(properties);
+        this.properties = Some(properties.iter().map(|s| s.as_ref().into()).collect());
         this
     }
 
@@ -67,7 +94,28 @@ impl Get {
     }
 }
 
-impl Search {
+impl Search<'static> {
+    pub fn into_owned<'a>(search: Search<'a>) -> Self {
+        Search {
+            jql: search.jql.map(|s| SmolCow::Owned(s.to_smol())),
+            start_at: search.start_at,
+            max_results: search.max_results,
+            validate: search.validate,
+            with_fields: search
+                .with_fields
+                .map(|v| v.into_iter().map(|s| SmolCow::Owned(s.to_smol())).collect()),
+            expand: search
+                .expand
+                .map(|v| v.into_iter().map(|s| SmolCow::Owned(s.to_smol())).collect()),
+            fields_by_key: search.fields_by_key,
+            properties: search
+                .properties
+                .map(|v| v.into_iter().map(|s| SmolCow::Owned(s.to_smol())).collect()),
+        }
+    }
+}
+
+impl<'a> Search<'a> {
     const VALID: [OptRef; 8] = [
         OptRef::Jql,
         OptRef::StartAt,
@@ -83,12 +131,12 @@ impl Search {
         Self::default()
     }
 
-    pub fn jql<T>(self, jql: T) -> Self
+    pub fn jql<T: 'a>(self, jql: T) -> Self
     where
-        T: ToString,
+        T: Into<SmolCow<'a, str>>,
     {
         let mut this = self;
-        this.jql = Some(jql.to_string());
+        this.jql = Some(jql.into());
         this
     }
 
@@ -110,21 +158,30 @@ impl Search {
         this
     }
 
-    pub fn with_fields(self, fields: Vec<String>) -> Self {
+    pub fn with_fields<T: 'a>(self, fields: &'a [T]) -> Self
+    where
+        T: AsRef<str>,
+    {
         let mut this = self;
-        this.with_fields = Some(fields);
+        this.with_fields = Some(fields.iter().map(|s| s.as_ref().into()).collect());
         this
     }
 
-    pub fn expand(self, expand: Vec<String>) -> Self {
+    pub fn expand<T: 'a>(self, expand: &'a [T]) -> Self
+    where
+        T: AsRef<str>,
+    {
         let mut this = self;
-        this.expand = Some(expand);
+        this.expand = Some(expand.iter().map(|s| s.as_ref().into()).collect());
         this
     }
 
-    pub fn properties(self, properties: Vec<String>) -> Self {
+    pub fn properties<T: 'a>(self, properties: &'a [T]) -> Self
+    where
+        T: AsRef<str>,
+    {
         let mut this = self;
-        this.properties = Some(properties);
+        this.properties = Some(properties.iter().map(|s| s.as_ref().into()).collect());
         this
     }
 
@@ -135,20 +192,20 @@ impl Search {
     }
 }
 
-impl ApiOptions for Get {
+impl<'a> ApiOptions for Get<'a> {
     fn valid_options(&self) -> &[OptRef] {
         Self::VALID.as_ref()
     }
 
-    fn with_fields(&self) -> Option<&[String]> {
+    fn with_fields(&self) -> Option<&[SmolCow<str>]> {
         self.with_fields.as_deref()
     }
 
-    fn expand(&self) -> Option<&[String]> {
+    fn expand(&self) -> Option<&[SmolCow<str>]> {
         self.expand.as_deref()
     }
 
-    fn properties(&self) -> Option<&[String]> {
+    fn properties(&self) -> Option<&[SmolCow<str>]> {
         self.properties.as_deref()
     }
 
@@ -161,7 +218,7 @@ impl ApiOptions for Get {
     }
 }
 
-impl ApiOptions for Search {
+impl<'a> ApiOptions for Search<'a> {
     fn valid_options(&self) -> &[OptRef] {
         Self::VALID.as_ref()
     }
@@ -182,15 +239,15 @@ impl ApiOptions for Search {
         self.validate
     }
 
-    fn with_fields(&self) -> Option<&[String]> {
+    fn with_fields(&self) -> Option<&[SmolCow<str>]> {
         self.with_fields.as_deref()
     }
 
-    fn expand(&self) -> Option<&[String]> {
+    fn expand(&self) -> Option<&[SmolCow<str>]> {
         self.expand.as_deref()
     }
 
-    fn properties(&self) -> Option<&[String]> {
+    fn properties(&self) -> Option<&[SmolCow<str>]> {
         self.properties.as_deref()
     }
 
