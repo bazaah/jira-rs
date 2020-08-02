@@ -1,12 +1,12 @@
 use {
     json::{value::RawValue as RawJson, Error as JsonError},
-    serde::Deserialize,
+    serde::{Deserialize, Serialize},
     serde_json as json,
     std::collections::HashMap,
 };
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct IssueSearch {
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Search {
     pub expand: String,
     #[serde(rename = "maxResults")]
     pub max_results: u64,
@@ -16,7 +16,7 @@ pub struct IssueSearch {
     pub issues: Vec<Issue>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Issue {
     #[serde(rename = "self")]
     pub self_link: String,

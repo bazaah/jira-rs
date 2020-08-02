@@ -1,24 +1,26 @@
 use super::*;
 
+pub use super::ValidateQuery;
+
 #[derive(Debug, Default, Clone)]
 pub struct Get {
-    with_fields: Option<Vec<String>>,
-    expand: Option<Vec<String>>,
-    fields_by_key: Option<bool>,
-    properties: Option<Vec<String>>,
-    update_history: Option<bool>,
+    pub with_fields: Option<Vec<String>>,
+    pub expand: Option<Vec<String>>,
+    pub fields_by_key: Option<bool>,
+    pub properties: Option<Vec<String>>,
+    pub update_history: Option<bool>,
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct Search {
-    jql: Option<String>,
-    start_at: Option<u32>,
-    max_results: Option<u32>,
-    validate: Option<ValidateQuery>,
-    with_fields: Option<Vec<String>>,
-    expand: Option<Vec<String>>,
-    properties: Option<Vec<String>>,
-    fields_by_key: Option<bool>,
+    pub jql: Option<String>,
+    pub start_at: Option<u32>,
+    pub max_results: Option<u32>,
+    pub validate: Option<ValidateQuery>,
+    pub with_fields: Option<Vec<String>>,
+    pub expand: Option<Vec<String>>,
+    pub properties: Option<Vec<String>>,
+    pub fields_by_key: Option<bool>,
 }
 
 impl Get {

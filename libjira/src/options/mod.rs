@@ -14,6 +14,23 @@ pub enum ValidateQuery {
     None,
 }
 
+impl ValidateQuery {
+    pub fn try_new(input: &str) -> Option<Self> {
+        match input {
+            "strict" => Some(Self::Strict),
+            "warn" => Some(Self::Warn),
+            "none" => Some(Self::None),
+            _ => None,
+        }
+    }
+}
+
+impl Default for ValidateQuery {
+    fn default() -> Self {
+        Self::Strict
+    }
+}
+
 pub(crate) trait ApiOptions {
     fn valid_options(&self) -> &[OptRef];
 

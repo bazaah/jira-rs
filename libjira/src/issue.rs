@@ -2,7 +2,7 @@ pub use crate::{models::issue as models, options::issue as options};
 
 use {
     crate::{client::Jira, error::JiraError, options::with_options},
-    models::{Issue, IssueSearch},
+    models::{Issue, Search},
     reqwest::RequestBuilder,
 };
 
@@ -30,10 +30,7 @@ impl Issues {
             .await
     }
 
-    pub async fn search(
-        &self,
-        options: Option<&options::Search>,
-    ) -> Result<IssueSearch, JiraError> {
+    pub async fn search(&self, options: Option<&options::Search>) -> Result<Search, JiraError> {
         let handler = |req| Ok(with_options(req, options));
 
         self.client.get(&["search"], handler)?.retrieve().await
