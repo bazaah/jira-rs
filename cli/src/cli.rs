@@ -1,5 +1,5 @@
 use jira_rs::client::Authentication;
-pub(crate) use structopt::StructOpt;
+use structopt::{clap::ArgSettings, StructOpt};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "jira", rename_all = "kebab")]
@@ -111,7 +111,7 @@ pub mod options {
         ///
         /// Modifiers
         /// '-' A dash prefixed to any non special field will omit the field
-        #[structopt(short, long, value_name = ",delimited")]
+        #[structopt(short, long, value_name = ",delimited", set = ArgSettings::AllowLeadingHyphen)]
         pub fields: Option<String>,
 
         /// List of expands to return in the response
@@ -128,25 +128,18 @@ pub mod options {
         ///
         /// Modifiers
         /// '-' A dash prefixed to any non special property will omit the property
-        #[structopt(short, long, value_name = ",delimited")]
+        #[structopt(short, long, value_name = ",delimited", set = ArgSettings::AllowLeadingHyphen)]
         pub properties: Option<String>,
     }
 
-    impl Into<options::Get> for IssuesGet {
-        fn into(self) -> options::Get {
-            options::Get {
-                with_fields: self
-                    .fields
-                    .map(|fields| fields.split(",").map(|s| s.to_string()).collect()),
-                expand: self
-                    .expand
-                    .map(|expand| expand.split(",").map(|s| s.to_string()).collect()),
-                fields_by_key: Some(self.fields_by_key).filter(|s| *s),
-                properties: self
-                    .properties
-                    .map(|props| props.split(",").map(|s| s.to_string()).collect()),
-                update_history: Some(self.update_history).filter(|s| *s),
-            }
+    impl<'a> Into<options::Get<'a>> for &'a IssuesGet {
+        fn into(self) -> options::Get<'a> {
+            options::Get::new()
+                .with_fields(self.fields.as_ref().map(|s| s.split(",")))
+                .expand(self.expand.as_ref().map(|s| s.split(",")))
+                .fields_by_key(Some(self.fields_by_key))
+                .properties(self.properties.as_ref().map(|s| s.split(",")))
+                .update_history(Some(self.update_history))
         }
     }
 
@@ -174,7 +167,7 @@ pub mod options {
         ///
         /// Modifiers
         /// '-' A dash prefixed to any non special field will omit the field
-        #[structopt(short, long, value_name = ",delimited")]
+        #[structopt(short, long, value_name = ",delimited", set = ArgSettings::AllowLeadingHyphen)]
         pub fields: Option<String>,
 
         /// Maximum number of issues to return
@@ -188,7 +181,7 @@ pub mod options {
         ///
         /// Modifiers
         /// '-' A dash prefixed to any non special property will omit the property
-        #[structopt(short, long, value_name = ",delimited")]
+        #[structopt(short, long, value_name = ",delimited", set = ArgSettings::AllowLeadingHyphen)]
         pub properties: Option<String>,
 
         /// Return results starting from
@@ -202,33 +195,29 @@ pub mod options {
         ///
         /// Possible values
         /// ['strict'], 'warn', 'none'
-        #[structopt(short, long, parse(try_from_str = try_into_validate))]
+        #[structopt(short, long, value_name = "mode", parse(try_from_str = try_into_validate))]
         pub validate: Option<options::ValidateQuery>,
     }
 
-    impl Into<options::Search> for IssuesSearch {
-        fn into(self) -> options::Search {
-            options::Search {
-                jql: None,
-                start_at: self.start_at,
-                max_results: self.max_results,
-                validate: self.validate,
-                with_fields: self
-                    .fields
-                    .map(|fields| fields.split(",").map(|s| s.to_string()).collect()),
-                expand: self
-                    .expand
-                    .map(|expand| expand.split(",").map(|s| s.to_string()).collect()),
-                properties: self
-                    .properties
-                    .map(|props| props.split(",").map(|s| s.to_string()).collect()),
-                fields_by_key: Some(self.fields_by_key).filter(|s| *s),
-            }
+    impl<'a> Into<options::Search<'a>> for &'a IssuesSearch {
+        fn into(self) -> options::Search<'a> {
+            options::Search::new()
+                .start_at(self.start_at)
+                .max_results(self.max_results)
+                .validate(self.validate)
+                .with_fields(self.fields.as_ref().map(|s| s.split(",")))
+                .expand(self.expand.as_ref().map(|s| s.split(",")))
+                .fields_by_key(Some(self.fields_by_key))
+                .properties(self.properties.as_ref().map(|s| s.split(",")))
         }
     }
 
     fn try_into_validate(input: &str) -> Result<options::ValidateQuery, String> {
-        options::ValidateQuery::try_new(input)
-            .ok_or_else(|| format!("Invalid {} value: {}", "validate", input))
+        options::ValidateQuery::try_new(input).ok_or_else(|| {
+            format!(
+                "expected one of [{}], got '{}'",
+                "strict, warn, none", input
+            )
+        })
     }
 }

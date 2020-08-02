@@ -20,17 +20,20 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Command::Issues(cmd) => match cmd {
-            IssuesCmd::Get { key, opts } => {
+            IssuesCmd::Get { ref key, ref opts } => {
                 let options = opts.into();
-                let issue = client.issues().get(key.as_str(), Some(&options)).await?;
+                let issue = client.issues().get(key, Some(&options)).await?;
 
                 let stdout = stdout();
                 json_pretty(stdout, &issue)?;
             }
-            IssuesCmd::Search { jql, opts } => {
+            IssuesCmd::Search { ref jql, ref opts } => {
                 let options: issue::options::Search = opts.into();
 
-                let search = client.issues().search(Some(&options.jql(jql))).await?;
+                let search = client
+                    .issues()
+                    .search(Some(&options.jql(Some(jql))))
+                    .await?;
 
                 json_pretty(stdout(), &search)?;
             }
