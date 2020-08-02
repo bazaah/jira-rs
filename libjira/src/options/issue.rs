@@ -54,42 +54,42 @@ impl<'a> Get<'a> {
         Self::default()
     }
 
-    pub fn with_fields<T: 'a>(self, fields: &'a [T]) -> Self
+    pub fn with_fields<I>(self, fields: Option<I>) -> Self
     where
-        T: AsRef<str>,
+        I: Iterator<Item = &'a str>,
     {
         let mut this = self;
-        this.with_fields = Some(fields.iter().map(|s| s.as_ref().into()).collect());
+        this.with_fields = fields.map(|i| i.map(|s| s.into()).collect());
         this
     }
 
-    pub fn expand<T: 'a>(self, expand: &'a [T]) -> Self
+    pub fn expand<I>(self, expand: Option<I>) -> Self
     where
-        T: AsRef<str>,
+        I: Iterator<Item = &'a str>,
     {
         let mut this = self;
-        this.expand = Some(expand.iter().map(|s| s.as_ref().into()).collect());
+        this.expand = expand.map(|i| i.map(|s| s.into()).collect());
         this
     }
 
-    pub fn properties<T: 'a>(self, properties: &'a [T]) -> Self
+    pub fn properties<I>(self, properties: Option<I>) -> Self
     where
-        T: AsRef<str>,
+        I: Iterator<Item = &'a str>,
     {
         let mut this = self;
-        this.properties = Some(properties.iter().map(|s| s.as_ref().into()).collect());
+        this.properties = properties.map(|i| i.map(|s| s.into()).collect());
         this
     }
 
-    pub fn fields_by_key(self, by_key: bool) -> Self {
+    pub fn fields_by_key(self, by_key: Option<bool>) -> Self {
         let mut this = self;
-        this.fields_by_key = Some(by_key);
+        this.fields_by_key = by_key.filter(|b| *b);
         this
     }
 
-    pub fn update_history(self, update: bool) -> Self {
+    pub fn update_history(self, update: Option<bool>) -> Self {
         let mut this = self;
-        this.update_history = Some(update);
+        this.update_history = update.filter(|b| *b);
         this
     }
 }
@@ -131,63 +131,63 @@ impl<'a> Search<'a> {
         Self::default()
     }
 
-    pub fn jql<T: 'a>(self, jql: T) -> Self
+    pub fn jql<T: 'a>(self, jql: Option<T>) -> Self
     where
         T: Into<SmolCow<'a, str>>,
     {
         let mut this = self;
-        this.jql = Some(jql.into());
+        this.jql = jql.map(|s| s.into());
         this
     }
 
-    pub fn start_at(self, start_at: u32) -> Self {
+    pub fn start_at(self, start_at: Option<u32>) -> Self {
         let mut this = self;
-        this.start_at = Some(start_at);
+        this.start_at = start_at;
         this
     }
 
-    pub fn max_results(self, max_results: u32) -> Self {
+    pub fn max_results(self, max_results: Option<u32>) -> Self {
         let mut this = self;
-        this.max_results = Some(max_results);
+        this.max_results = max_results;
         this
     }
 
-    pub fn validate(self, validate: ValidateQuery) -> Self {
+    pub fn validate(self, validate: Option<ValidateQuery>) -> Self {
         let mut this = self;
-        this.validate = Some(validate);
+        this.validate = validate;
         this
     }
 
-    pub fn with_fields<T: 'a>(self, fields: &'a [T]) -> Self
+    pub fn with_fields<I>(self, fields: Option<I>) -> Self
     where
-        T: AsRef<str>,
+        I: Iterator<Item = &'a str>,
     {
         let mut this = self;
-        this.with_fields = Some(fields.iter().map(|s| s.as_ref().into()).collect());
+        this.with_fields = fields.map(|i| i.map(|s| s.into()).collect());
         this
     }
 
-    pub fn expand<T: 'a>(self, expand: &'a [T]) -> Self
+    pub fn expand<I>(self, expand: Option<I>) -> Self
     where
-        T: AsRef<str>,
+        I: Iterator<Item = &'a str>,
     {
         let mut this = self;
-        this.expand = Some(expand.iter().map(|s| s.as_ref().into()).collect());
+        this.expand = expand.map(|i| i.map(|s| s.into()).collect());
         this
     }
 
-    pub fn properties<T: 'a>(self, properties: &'a [T]) -> Self
+    pub fn properties<I>(self, properties: Option<I>) -> Self
     where
-        T: AsRef<str>,
+        I: Iterator<Item = &'a str>,
     {
         let mut this = self;
-        this.properties = Some(properties.iter().map(|s| s.as_ref().into()).collect());
+        this.properties = properties.map(|i| i.map(|s| s.into()).collect());
         this
     }
 
-    pub fn fields_by_key(self, by_key: bool) -> Self {
+    pub fn fields_by_key(self, by_key: Option<bool>) -> Self {
         let mut this = self;
-        this.fields_by_key = Some(by_key);
+        this.fields_by_key = by_key.filter(|b| *b);
         this
     }
 }
