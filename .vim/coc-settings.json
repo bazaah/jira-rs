@@ -1,6 +1,8 @@
 {
   "cSpell.words": [
     "Jira",
+    "Smol",
+    "editmeta",
     "reqwest",
     "structopt",
     "subcommand"
