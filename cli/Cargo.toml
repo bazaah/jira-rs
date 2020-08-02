@@ -4,11 +4,16 @@ version = "0.1.0"
 authors = ["Bazaah <github@luxolus.com>"]
 edition = "2018"
 
+[[bin]]
+name = "jira"
+path = "src/main.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 structopt = "0.3"
 anyhow = "1.0"
 tokio = { version = "0.2", features = ["full"] }
+serde_json = "1.0"
 
 jira-rs = { version = "*", path ="../libjira" }
