@@ -26,5 +26,5 @@ This project got the initial design from [goji](https://github.com/softprops/goj
 
 ## License
 
-This project is licensed under [Apache 2](./LICENSE-APACHE.txt) or [MIT](./LICENSE-MIT.txt) at your option.
+This project is licensed under [Apache 2](./LICENSE-APACHE) or [MIT](./LICENSE-MIT) at your option.
 
