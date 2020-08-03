@@ -25,7 +25,7 @@ pub struct Issue {
     pub expand: String,
     pub fields: HashMap<String, Box<RawJson>>,
 
-    // Capture any extra fields returned
+    // Capture any extra fields returned (if any)
     #[serde(flatten)]
     pub extra: HashMap<String, Box<RawJson>>,
 }
@@ -61,7 +61,7 @@ impl Issue {
         self.field::<User>(key)
     }
 
-    // User assigned to the issue
+    /// User assigned to the issue
     pub fn assignee(&self) -> Option<User> {
         self.field("assignee").and_then(Result::ok)
     }
@@ -101,23 +101,28 @@ impl Issue {
         self.string_field("created").and_then(Result::ok)
     }
 
-    // Issue's resolution date
+    /// Issue's resolution date
     pub fn resolution_date(&self) -> Option<&str> {
         self.string_field("resolutiondate").and_then(Result::ok)
     }
 
+    /// Description of the issue's type
     pub fn issue_type(&self) -> Option<IssueType> {
         self.field::<IssueType>("issuetype").and_then(Result::ok)
     }
 
+    /// Labels assigned to this issue
     pub fn labels(&self) -> Option<Vec<&str>> {
         self.field::<Vec<&str>>("labels").and_then(Result::ok)
     }
 
+    // TODO: This appears to return an object not str... investigate
+    /// Issue fix version(s)
     pub fn fix_versions(&self) -> Option<Vec<&str>> {
         self.field::<Vec<&str>>("fixVersions").and_then(Result::ok)
     }
 
+    /// Issue's comments
     pub fn comments(&self) -> Option<Vec<Comment>> {
         // Note JIRA's json path here looks like: issue.comment.comments.[ <-- Comment objects here --> ]
         // We remove some of this indirection here, so it appears to the user like: issue.comments.[...]
@@ -125,7 +130,7 @@ impl Issue {
             .and_then(|r| r.map(Into::into).ok())
     }
 
-    /// Issue priority
+    /// Issue's priority
     pub fn priority(&self) -> Option<Priority> {
         self.field::<Priority>("priority").and_then(Result::ok)
     }
@@ -136,20 +141,24 @@ impl Issue {
             .and_then(Result::ok)
     }
 
+    /// The project this Issue is assigned to
     pub fn project(&self) -> Option<Project> {
         self.field::<Project>("project").and_then(Result::ok)
     }
 
+    /// This Issue's resolution, if it exists
     pub fn resolution(&self) -> Option<Resolution> {
         self.field::<Resolution>("resolution").and_then(Result::ok)
     }
 
+    /// Any attachments this Issue contains
     pub fn attachment(&self) -> Option<Vec<Attachment>> {
         self.field::<Vec<Attachment>>("attachment")
             .and_then(Result::ok)
     }
 }
 
+/// Representation of a Jira User
 #[derive(Debug, Clone, Deserialize)]
 pub struct User<'a> {
     pub active: bool,
@@ -167,6 +176,8 @@ pub struct User<'a> {
     pub timezone: Option<&'a str>,
 }
 
+/// Representation of the current status of
+/// the issue, examples include: "In Progress", "Testing", "Done"
 #[derive(Debug, Clone, Deserialize)]
 pub struct Status<'a> {
     pub description: &'a str,
@@ -176,8 +187,10 @@ pub struct Status<'a> {
     pub name: &'a str,
     #[serde(rename = "self")]
     pub self_link: &'a str,
+    // TODO: Add statusCategory as optional
 }
 
+/// The issue kind, examples include: "Story", "Epic"
 #[derive(Debug, Clone, Deserialize)]
 pub struct IssueType<'a> {
     pub description: &'a str,
@@ -190,6 +203,7 @@ pub struct IssueType<'a> {
     pub subtask: bool,
 }
 
+// TODO: Investigate where this shows up
 #[derive(Debug, Clone, Deserialize)]
 pub struct Version<'a> {
     pub archived: bool,
@@ -200,6 +214,8 @@ pub struct Version<'a> {
     pub self_link: &'a str,
 }
 
+// Wrapper struct for flattening Jira's json
+// path to comments
 #[derive(Debug, Clone, Deserialize)]
 struct Comments<'a> {
     #[serde(borrow)]
@@ -212,6 +228,7 @@ impl<'a> Into<Vec<Comment<'a>>> for Comments<'a> {
     }
 }
 
+/// Representation of a Jira comment
 #[derive(Debug, Clone, Deserialize)]
 pub struct Comment<'a> {
     pub id: Option<&'a str>,
@@ -226,6 +243,7 @@ pub struct Comment<'a> {
     pub visibility: Option<Visibility<'a>>,
 }
 
+// Not all Jira's have this...
 #[derive(Debug, Clone, Deserialize)]
 pub struct Visibility<'a> {
     #[serde(rename = "type")]
@@ -236,6 +254,8 @@ pub struct Visibility<'a> {
 #[derive(Debug, Clone, Deserialize)]
 pub struct Project<'a> {
     pub id: &'a str,
+    #[serde(rename = "self")]
+    pub self_link: &'a str,
     pub key: &'a str,
     pub name: &'a str,
 }
