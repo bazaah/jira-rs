@@ -1,7 +1,9 @@
 {
   "cSpell.words": [
     "Jira",
+    "Jira's",
     "Smol",
+    "deserialization",
     "editmeta",
     "reqwest",
     "structopt",
