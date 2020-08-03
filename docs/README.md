@@ -20,6 +20,10 @@ If you are interested in it being published please open an issue.
 | [ ]    |  issue/update/metadata  |
 | [ ]    |  issue/update           |
 
+## Prior Work
+
+This project got the initial design from [goji](https://github.com/softprops/goji).
+
 ## License
 
 This project is licensed under [Apache 2](./LICENSE-APACHE.txt) or [MIT](./LICENSE-MIT.txt) at your option.
