@@ -311,3 +311,61 @@ pub struct Priority<'a> {
     #[serde(rename = "self")]
     pub self_link: &'a str,
 }
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Operations {
+    Set,
+    Add,
+    Remove,
+}
+
+/*  <=== ISSUE CREATE/UPDATE METADATA ===> */
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct IssueMetadata<'a> {
+    pub expand: Option<&'a str>,
+    #[serde(borrow)]
+    pub projects: Vec<IssueTypeMeta<'a>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct IssueTypeMeta<'a> {
+    #[serde(flatten, borrow)]
+    pub issue_type: IssueType<'a>,
+    // Only exists when API is queried with 'expand=projects.issues.fields'
+    pub fields: Option<Vec<IssueFieldsMeta<'a>>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct IssueFieldsMeta<'a> {
+    pub required: bool,
+    pub name: &'a str,
+    #[serde(rename = "fieldId")]
+    pub field_id: &'a str,
+    #[serde(rename = "defaultValue")]
+    pub default: Option<&'a RawJson>,
+    pub schema: Option<FieldSchema<'a>>,
+    pub operations: Vec<Operations>,
+    #[serde(rename = "allowedValues")]
+    pub possible_values: Option<Vec<&'a RawJson>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FieldSchema<'a> {
+    // TODO: Try to find an authoritative source on what types it can be
+    /// One of: any,array,date,issuetype,number,option,
+    /// priority,project,string,timestracking,user
+    /// Probably has more variants
+    #[serde(rename = "field")]
+    pub field_type: &'a str,
+    // Mutually exclusive with 'custom'
+    pub system: Option<&'a str>,
+    pub custom: Option<&'a str>,
+    // Only exists if 'custom' exists
+    #[serde(rename = "fieldId")]
+    pub custom_id: Option<u64>,
+    // Only exists if 'field_type' == array
+    pub items: Option<&'a str>,
+}
+
