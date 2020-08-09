@@ -23,33 +23,39 @@ pub struct Search<'a> {
     fields_by_key: Option<bool>,
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct MetaCreate<'a> {
+    project_ids: Option<Vec<u64>>,
+    project_keys: Option<Vec<SmolCow<'a, str>>>,
+    issuetype_ids: Option<Vec<u64>>,
+    issuetype_keys: Option<Vec<SmolCow<'a, str>>>,
+}
+
 impl Get<'static> {
     pub fn into_owned<'a>(get: Get<'a>) -> Self {
         Get {
-            with_fields: get
-                .with_fields
-                .map(|v| v.into_iter().map(|s| SmolCow::Owned(s.to_smol())).collect()),
-            expand: get
-                .expand
-                .map(|v| v.into_iter().map(|s| SmolCow::Owned(s.to_smol())).collect()),
+            with_fields: get.with_fields.map(|v| {
+                v.into_iter()
+                    .map(|s| SmolCow::Owned(s.to_owned()))
+                    .collect()
+            }),
+            expand: get.expand.map(|v| {
+                v.into_iter()
+                    .map(|s| SmolCow::Owned(s.to_owned()))
+                    .collect()
+            }),
             fields_by_key: get.fields_by_key,
-            properties: get
-                .properties
-                .map(|v| v.into_iter().map(|s| SmolCow::Owned(s.to_smol())).collect()),
+            properties: get.properties.map(|v| {
+                v.into_iter()
+                    .map(|s| SmolCow::Owned(s.to_owned()))
+                    .collect()
+            }),
             update_history: get.update_history,
         }
     }
 }
 
 impl<'a> Get<'a> {
-    const VALID: [OptRef; 5] = [
-        OptRef::WithFields,
-        OptRef::Expand,
-        OptRef::FieldsByKey,
-        OptRef::Properties,
-        OptRef::UpdateHistory,
-    ];
-
     pub fn new() -> Self {
         Self::default()
     }
@@ -94,39 +100,42 @@ impl<'a> Get<'a> {
     }
 }
 
+impl<'a> ToQuery<'a> for Get<'a> {
+    type Queries = GetIter<'a>;
+
+    fn to_queries(&'a self) -> Self::Queries {
+        GetIter::new(self)
+    }
+}
+
 impl Search<'static> {
     pub fn into_owned<'a>(search: Search<'a>) -> Self {
         Search {
-            jql: search.jql.map(|s| SmolCow::Owned(s.to_smol())),
+            jql: search.jql.map(|s| SmolCow::Owned(s.to_owned())),
             start_at: search.start_at,
             max_results: search.max_results,
             validate: search.validate,
-            with_fields: search
-                .with_fields
-                .map(|v| v.into_iter().map(|s| SmolCow::Owned(s.to_smol())).collect()),
-            expand: search
-                .expand
-                .map(|v| v.into_iter().map(|s| SmolCow::Owned(s.to_smol())).collect()),
+            with_fields: search.with_fields.map(|v| {
+                v.into_iter()
+                    .map(|s| SmolCow::Owned(s.to_owned()))
+                    .collect()
+            }),
+            expand: search.expand.map(|v| {
+                v.into_iter()
+                    .map(|s| SmolCow::Owned(s.to_owned()))
+                    .collect()
+            }),
             fields_by_key: search.fields_by_key,
-            properties: search
-                .properties
-                .map(|v| v.into_iter().map(|s| SmolCow::Owned(s.to_smol())).collect()),
+            properties: search.properties.map(|v| {
+                v.into_iter()
+                    .map(|s| SmolCow::Owned(s.to_owned()))
+                    .collect()
+            }),
         }
     }
 }
 
 impl<'a> Search<'a> {
-    const VALID: [OptRef; 8] = [
-        OptRef::Jql,
-        OptRef::StartAt,
-        OptRef::MaxResults,
-        OptRef::ValidateQuery,
-        OptRef::WithFields,
-        OptRef::Expand,
-        OptRef::Properties,
-        OptRef::FieldsByKey,
-    ];
-
     pub fn new() -> Self {
         Self::default()
     }
@@ -192,66 +201,230 @@ impl<'a> Search<'a> {
     }
 }
 
-impl<'a> ApiOptions for Get<'a> {
-    fn valid_options(&self) -> &[OptRef] {
-        Self::VALID.as_ref()
-    }
+impl<'a> ToQuery<'a> for Search<'a> {
+    type Queries = SearchIter<'a>;
 
-    fn with_fields(&self) -> Option<&[SmolCow<str>]> {
-        self.with_fields.as_deref()
-    }
-
-    fn expand(&self) -> Option<&[SmolCow<str>]> {
-        self.expand.as_deref()
-    }
-
-    fn properties(&self) -> Option<&[SmolCow<str>]> {
-        self.properties.as_deref()
-    }
-
-    fn fields_by_key(&self) -> Option<bool> {
-        self.fields_by_key
-    }
-
-    fn update_history(&self) -> Option<bool> {
-        self.update_history
+    fn to_queries(&'a self) -> Self::Queries {
+        SearchIter::new(self)
     }
 }
 
-impl<'a> ApiOptions for Search<'a> {
-    fn valid_options(&self) -> &[OptRef] {
-        Self::VALID.as_ref()
+impl<'a> MetaCreate<'a> {
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    fn jql(&self) -> Option<&str> {
-        self.jql.as_deref()
+    pub fn project_keys<I>(self, project_keys: Option<I>) -> Self
+    where
+        I: Iterator<Item = &'a str>,
+    {
+        let mut this = self;
+        this.project_keys = project_keys.map(|i| i.map(|s| s.into()).collect());
+        this
     }
 
-    fn start_at(&self) -> Option<u32> {
-        self.start_at
+    pub fn project_ids<I>(self, project_ids: Option<I>) -> Self
+    where
+        I: Iterator<Item = u64>,
+    {
+        let mut this = self;
+        this.project_ids = project_ids.map(|i| i.collect());
+        this
     }
 
-    fn max_results(&self) -> Option<u32> {
-        self.max_results
+    pub fn issuetype_keys<I>(self, issuetype_keys: Option<I>) -> Self
+    where
+        I: Iterator<Item = &'a str>,
+    {
+        let mut this = self;
+        this.issuetype_keys = issuetype_keys.map(|i| i.map(|s| s.into()).collect());
+        this
     }
 
-    fn validate_query(&self) -> Option<ValidateQuery> {
-        self.validate
-    }
-
-    fn with_fields(&self) -> Option<&[SmolCow<str>]> {
-        self.with_fields.as_deref()
-    }
-
-    fn expand(&self) -> Option<&[SmolCow<str>]> {
-        self.expand.as_deref()
-    }
-
-    fn properties(&self) -> Option<&[SmolCow<str>]> {
-        self.properties.as_deref()
-    }
-
-    fn fields_by_key(&self) -> Option<bool> {
-        self.fields_by_key
+    pub fn issuetype_ids<I>(self, issuetype_ids: Option<I>) -> Self
+    where
+        I: Iterator<Item = u64>,
+    {
+        let mut this = self;
+        this.issuetype_ids = issuetype_ids.map(|i| i.collect());
+        this
     }
 }
+
+/*
+ <=========== OPTION ITERATORS ========================>
+*/
+
+pub(crate) struct GetIter<'a> {
+    iter: [Option<(&'a str, OptionSerialize<'a>)>; 5],
+    idx: usize,
+}
+
+impl<'a> GetIter<'a> {
+    pub fn new(owner: &'a Get<'a>) -> Self {
+        let iter = [
+            owner
+                .with_fields
+                .as_ref()
+                .map(|v| (key::WITH_FIELDS, CommaDelimited::new(v).into())),
+            owner
+                .expand
+                .as_ref()
+                .map(|v| (key::EXPAND, CommaDelimited::new(v).into())),
+            owner
+                .fields_by_key
+                .as_ref()
+                .map(|v| (key::FIELDS_BY_KEY, (*v).into())),
+            owner
+                .properties
+                .as_ref()
+                .map(|v| (key::PROPERTIES, CommaDelimited::new(v).into())),
+            owner
+                .update_history
+                .as_ref()
+                .map(|v| (key::UPDATE_HISTORY, (*v).into())),
+        ];
+
+        Self { iter, idx: 0 }
+    }
+}
+
+impl<'a> Iterator for GetIter<'a> {
+    type Item = (&'a str, OptionSerialize<'a>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut next = None;
+
+        while let None = next {
+            if self.idx > self.iter.len() {
+                return None;
+            }
+
+            if let Some(query) = self.iter.iter_mut().nth(self.idx).and_then(|o| o.take()) {
+                next = Some(query)
+            }
+            self.idx += 1;
+        }
+
+        next
+    }
+}
+
+pub(crate) struct SearchIter<'a> {
+    iter: [Option<(&'a str, OptionSerialize<'a>)>; 8],
+    idx: usize,
+}
+
+impl<'a> SearchIter<'a> {
+    pub fn new(owner: &'a Search<'a>) -> Self {
+        let iter = [
+            owner.jql.as_ref().map(|v| (key::JQL, v.as_ref().into())),
+            owner
+                .start_at
+                .as_ref()
+                .map(|v| (key::START_AT, (*v).into())),
+            owner
+                .max_results
+                .as_ref()
+                .map(|v| (key::MAX_RESULTS, (*v).into())),
+            owner
+                .validate
+                .as_ref()
+                .map(|v| (key::VALIDATE_QUERY, (*v).into())),
+            owner
+                .with_fields
+                .as_ref()
+                .map(|v| (key::WITH_FIELDS, CommaDelimited::new(v).into())),
+            owner
+                .expand
+                .as_ref()
+                .map(|v| (key::EXPAND, CommaDelimited::new(v).into())),
+            owner
+                .properties
+                .as_ref()
+                .map(|v| (key::PROPERTIES, CommaDelimited::new(v).into())),
+            owner
+                .fields_by_key
+                .as_ref()
+                .map(|v| (key::FIELDS_BY_KEY, (*v).into())),
+        ];
+
+        Self { iter, idx: 0 }
+    }
+}
+
+impl<'a> Iterator for SearchIter<'a> {
+    type Item = (&'a str, OptionSerialize<'a>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut next = None;
+
+        while let None = next {
+            if self.idx > self.iter.len() {
+                return None;
+            }
+
+            if let Some(query) = self.iter.iter_mut().nth(self.idx).and_then(|o| o.take()) {
+                next = Some(query)
+            }
+            self.idx += 1;
+        }
+
+        next
+    }
+}
+
+//pub(crate) struct MetaCreateIter<'a> {
+//    iter: [Option<(&'a str, OptionSerialize<'a>)>; 4],
+//    idx: usize,
+//}
+//
+//impl<'a> MetaCreateIter<'a> {
+//    pub fn new(owner: &'a MetaCreate<'a>) -> Self {
+//        let iter = [
+//            owner
+//                .with_fields
+//                .as_ref()
+//                .map(|v| (key::WITH_FIELDS, CommaDelimited::new(v).into())),
+//            owner
+//                .expand
+//                .as_ref()
+//                .map(|v| (key::EXPAND, CommaDelimited::new(v).into())),
+//            owner
+//                .fields_by_key
+//                .as_ref()
+//                .map(|v| (key::FIELDS_BY_KEY, (*v).into())),
+//            owner
+//                .properties
+//                .as_ref()
+//                .map(|v| (key::PROPERTIES, CommaDelimited::new(v).into())),
+//            owner
+//                .update_history
+//                .as_ref()
+//                .map(|v| (key::UPDATE_HISTORY, (*v).into())),
+//        ];
+//
+//        Self { iter, idx: 0 }
+//    }
+//}
+//
+//impl<'a> Iterator for MetaCreateIter<'a> {
+//    type Item = (&'a str, OptionSerialize<'a>);
+//
+//    fn next(&mut self) -> Option<Self::Item> {
+//        let mut next = None;
+//
+//        while let None = next {
+//            if self.idx > self.iter.len() {
+//                return None;
+//            }
+//
+//            if let Some(query) = self.iter.iter_mut().nth(self.idx).and_then(|o| o.take()) {
+//                next = Some(query)
+//            }
+//            self.idx += 1;
+//        }
+//
+//        next
+//    }
+//}

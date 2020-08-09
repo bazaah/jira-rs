@@ -1,4 +1,5 @@
 use {
+    serde::{Serialize, Serializer},
     smol_str::SmolStr,
     std::{borrow::Borrow, fmt, ops::Deref},
 };
@@ -18,7 +19,7 @@ impl<B> SmolCow<'_, B>
 where
     B: ToSmol + ?Sized,
 {
-    pub fn to_smol(self) -> <B as ToSmol>::Owned {
+    pub fn to_owned(self) -> <B as ToSmol>::Owned {
         match self {
             Self::Borrowed(b) => b.to_smol(),
             Self::Owned(o) => o,
@@ -118,6 +119,15 @@ impl AsRef<str> for SmolCow<'_, str> {
 impl Borrow<str> for SmolCow<'_, str> {
     fn borrow(&self) -> &str {
         &*self
+    }
+}
+
+impl Serialize for SmolCow<'_, str> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.as_ref().serialize(serializer)
     }
 }
 
