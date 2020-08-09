@@ -3,8 +3,10 @@
     "Jira",
     "Jira's",
     "Smol",
+    "createmeta",
     "deserialization",
     "editmeta",
+    "issuetype",
     "reqwest",
     "structopt",
     "subcommand"
