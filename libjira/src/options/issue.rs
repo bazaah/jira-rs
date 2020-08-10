@@ -3,87 +3,64 @@ use super::*;
 pub use super::ValidateQuery;
 
 #[derive(Debug, Default, Clone)]
-pub struct Get<'a> {
-    with_fields: Option<Vec<SmolCow<'a, str>>>,
-    expand: Option<Vec<SmolCow<'a, str>>>,
+pub struct Get {
+    with_fields: Option<CommaDelimited>,
+    expand: Option<CommaDelimited>,
     fields_by_key: Option<bool>,
-    properties: Option<Vec<SmolCow<'a, str>>>,
+    properties: Option<CommaDelimited>,
     update_history: Option<bool>,
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct Search<'a> {
-    jql: Option<SmolCow<'a, str>>,
+pub struct Search {
+    jql: Option<String>,
     start_at: Option<u32>,
     max_results: Option<u32>,
     validate: Option<ValidateQuery>,
-    with_fields: Option<Vec<SmolCow<'a, str>>>,
-    expand: Option<Vec<SmolCow<'a, str>>>,
-    properties: Option<Vec<SmolCow<'a, str>>>,
+    with_fields: Option<CommaDelimited>,
+    expand: Option<CommaDelimited>,
+    properties: Option<CommaDelimited>,
     fields_by_key: Option<bool>,
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct MetaCreate<'a> {
-    project_ids: Option<Vec<u64>>,
-    project_keys: Option<Vec<SmolCow<'a, str>>>,
-    issuetype_ids: Option<Vec<u64>>,
-    issuetype_keys: Option<Vec<SmolCow<'a, str>>>,
+pub struct MetaCreate {
+    project_ids: Option<CommaDelimited>,
+    project_keys: Option<CommaDelimited>,
+    issuetype_ids: Option<CommaDelimited>,
+    issuetype_keys: Option<CommaDelimited>,
+    expand: Option<CommaDelimited>,
 }
 
-impl Get<'static> {
-    pub fn into_owned<'a>(get: Get<'a>) -> Self {
-        Get {
-            with_fields: get.with_fields.map(|v| {
-                v.into_iter()
-                    .map(|s| SmolCow::Owned(s.to_owned()))
-                    .collect()
-            }),
-            expand: get.expand.map(|v| {
-                v.into_iter()
-                    .map(|s| SmolCow::Owned(s.to_owned()))
-                    .collect()
-            }),
-            fields_by_key: get.fields_by_key,
-            properties: get.properties.map(|v| {
-                v.into_iter()
-                    .map(|s| SmolCow::Owned(s.to_owned()))
-                    .collect()
-            }),
-            update_history: get.update_history,
-        }
-    }
-}
-
-impl<'a> Get<'a> {
+impl Get {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn with_fields<I>(self, fields: Option<I>) -> Self
+    pub fn with_fields<'a, I>(self, fields: Option<I>) -> Self
     where
-        I: Iterator<Item = &'a str>,
+        I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.with_fields = fields.map(|i| i.map(|s| s.into()).collect());
+        this.with_fields = fields.map(|i| CommaDelimited::from_iter(i));
         this
     }
 
-    pub fn expand<I>(self, expand: Option<I>) -> Self
+    pub fn expand<'a, I>(self, expand: Option<I>) -> Self
     where
-        I: Iterator<Item = &'a str>,
+        I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.expand = expand.map(|i| i.map(|s| s.into()).collect());
+        this.expand = expand.map(|i| CommaDelimited::from_iter(i));
         this
     }
 
-    pub fn properties<I>(self, properties: Option<I>) -> Self
+    pub fn properties<'a, I>(self, properties: Option<I>) -> Self
     where
-        I: Iterator<Item = &'a str>,
+        I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.properties = properties.map(|i| i.map(|s| s.into()).collect());
+        this.properties = properties.map(|i| CommaDelimited::from_iter(i));
         this
     }
 
@@ -100,7 +77,7 @@ impl<'a> Get<'a> {
     }
 }
 
-impl<'a> ToQuery<'a> for Get<'a> {
+impl<'a> ToQuery<'a> for Get {
     type Queries = GetIter<'a>;
 
     fn to_queries(&'a self) -> Self::Queries {
@@ -108,44 +85,17 @@ impl<'a> ToQuery<'a> for Get<'a> {
     }
 }
 
-impl Search<'static> {
-    pub fn into_owned<'a>(search: Search<'a>) -> Self {
-        Search {
-            jql: search.jql.map(|s| SmolCow::Owned(s.to_owned())),
-            start_at: search.start_at,
-            max_results: search.max_results,
-            validate: search.validate,
-            with_fields: search.with_fields.map(|v| {
-                v.into_iter()
-                    .map(|s| SmolCow::Owned(s.to_owned()))
-                    .collect()
-            }),
-            expand: search.expand.map(|v| {
-                v.into_iter()
-                    .map(|s| SmolCow::Owned(s.to_owned()))
-                    .collect()
-            }),
-            fields_by_key: search.fields_by_key,
-            properties: search.properties.map(|v| {
-                v.into_iter()
-                    .map(|s| SmolCow::Owned(s.to_owned()))
-                    .collect()
-            }),
-        }
-    }
-}
-
-impl<'a> Search<'a> {
+impl Search {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn jql<T: 'a>(self, jql: Option<T>) -> Self
+    pub fn jql<T>(self, jql: Option<T>) -> Self
     where
-        T: Into<SmolCow<'a, str>>,
+        T: AsRef<str>,
     {
         let mut this = self;
-        this.jql = jql.map(|s| s.into());
+        this.jql = jql.map(|s| s.as_ref().into());
         this
     }
 
@@ -167,30 +117,30 @@ impl<'a> Search<'a> {
         this
     }
 
-    pub fn with_fields<I>(self, fields: Option<I>) -> Self
+    pub fn with_fields<'a, I>(self, fields: Option<I>) -> Self
     where
-        I: Iterator<Item = &'a str>,
+        I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.with_fields = fields.map(|i| i.map(|s| s.into()).collect());
+        this.with_fields = fields.map(|i| CommaDelimited::from_iter(i));
         this
     }
 
-    pub fn expand<I>(self, expand: Option<I>) -> Self
+    pub fn expand<'a, I>(self, expand: Option<I>) -> Self
     where
-        I: Iterator<Item = &'a str>,
+        I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.expand = expand.map(|i| i.map(|s| s.into()).collect());
+        this.expand = expand.map(|i| CommaDelimited::from_iter(i));
         this
     }
 
-    pub fn properties<I>(self, properties: Option<I>) -> Self
+    pub fn properties<'a, I>(self, properties: Option<I>) -> Self
     where
-        I: Iterator<Item = &'a str>,
+        I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.properties = properties.map(|i| i.map(|s| s.into()).collect());
+        this.properties = properties.map(|i| CommaDelimited::from_iter(i));
         this
     }
 
@@ -201,7 +151,7 @@ impl<'a> Search<'a> {
     }
 }
 
-impl<'a> ToQuery<'a> for Search<'a> {
+impl<'a> ToQuery<'a> for Search {
     type Queries = SearchIter<'a>;
 
     fn to_queries(&'a self) -> Self::Queries {
@@ -209,45 +159,62 @@ impl<'a> ToQuery<'a> for Search<'a> {
     }
 }
 
-impl<'a> MetaCreate<'a> {
+impl MetaCreate {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn project_keys<I>(self, project_keys: Option<I>) -> Self
+    pub fn project_keys<'a, I>(self, project_keys: Option<I>) -> Self
     where
-        I: Iterator<Item = &'a str>,
+        I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.project_keys = project_keys.map(|i| i.map(|s| s.into()).collect());
+        this.project_keys = project_keys.map(|i| CommaDelimited::from_iter(i));
         this
     }
 
     pub fn project_ids<I>(self, project_ids: Option<I>) -> Self
     where
-        I: Iterator<Item = u64>,
+        I: Iterator<Item = u64> + Clone,
     {
         let mut this = self;
-        this.project_ids = project_ids.map(|i| i.collect());
+        this.project_ids = project_ids.map(|i| CommaDelimited::from_iter(i));
         this
     }
 
-    pub fn issuetype_keys<I>(self, issuetype_keys: Option<I>) -> Self
+    pub fn issuetype_keys<'a, I>(self, issuetype_keys: Option<I>) -> Self
     where
-        I: Iterator<Item = &'a str>,
+        I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.issuetype_keys = issuetype_keys.map(|i| i.map(|s| s.into()).collect());
+        this.issuetype_keys = issuetype_keys.map(|i| CommaDelimited::from_iter(i));
         this
     }
 
     pub fn issuetype_ids<I>(self, issuetype_ids: Option<I>) -> Self
     where
-        I: Iterator<Item = u64>,
+        I: Iterator<Item = u64> + Clone,
     {
         let mut this = self;
-        this.issuetype_ids = issuetype_ids.map(|i| i.collect());
+        this.issuetype_ids = issuetype_ids.map(|i| CommaDelimited::from_iter(i));
         this
+    }
+
+    pub fn expand<'a, I>(self, expand: Option<I>) -> Self
+    where
+        I: Iterator<Item = &'a str> + Clone,
+    {
+        let mut this = self;
+        this.expand = expand.map(|i| CommaDelimited::from_iter(i));
+        this
+    }
+}
+
+impl<'a> ToQuery<'a> for MetaCreate {
+    type Queries = MetaCreateIter<'a>;
+
+    fn to_queries(&'a self) -> Self::Queries {
+        MetaCreateIter::new(self)
     }
 }
 
@@ -261,16 +228,13 @@ pub(crate) struct GetIter<'a> {
 }
 
 impl<'a> GetIter<'a> {
-    pub fn new(owner: &'a Get<'a>) -> Self {
+    pub fn new(owner: &'a Get) -> Self {
         let iter = [
             owner
                 .with_fields
                 .as_ref()
-                .map(|v| (key::WITH_FIELDS, CommaDelimited::new(v).into())),
-            owner
-                .expand
-                .as_ref()
-                .map(|v| (key::EXPAND, CommaDelimited::new(v).into())),
+                .map(|v| (key::WITH_FIELDS, v.into())),
+            owner.expand.as_ref().map(|v| (key::EXPAND, v.into())),
             owner
                 .fields_by_key
                 .as_ref()
@@ -278,7 +242,7 @@ impl<'a> GetIter<'a> {
             owner
                 .properties
                 .as_ref()
-                .map(|v| (key::PROPERTIES, CommaDelimited::new(v).into())),
+                .map(|v| (key::PROPERTIES, v.into())),
             owner
                 .update_history
                 .as_ref()
@@ -316,9 +280,9 @@ pub(crate) struct SearchIter<'a> {
 }
 
 impl<'a> SearchIter<'a> {
-    pub fn new(owner: &'a Search<'a>) -> Self {
+    pub fn new(owner: &'a Search) -> Self {
         let iter = [
-            owner.jql.as_ref().map(|v| (key::JQL, v.as_ref().into())),
+            owner.jql.as_ref().map(|v| (key::JQL, v.as_str().into())),
             owner
                 .start_at
                 .as_ref()
@@ -334,15 +298,12 @@ impl<'a> SearchIter<'a> {
             owner
                 .with_fields
                 .as_ref()
-                .map(|v| (key::WITH_FIELDS, CommaDelimited::new(v).into())),
-            owner
-                .expand
-                .as_ref()
-                .map(|v| (key::EXPAND, CommaDelimited::new(v).into())),
+                .map(|v| (key::WITH_FIELDS, v.into())),
+            owner.expand.as_ref().map(|v| (key::EXPAND, v.into())),
             owner
                 .properties
                 .as_ref()
-                .map(|v| (key::PROPERTIES, CommaDelimited::new(v).into())),
+                .map(|v| (key::PROPERTIES, v.into())),
             owner
                 .fields_by_key
                 .as_ref()
@@ -374,57 +335,54 @@ impl<'a> Iterator for SearchIter<'a> {
     }
 }
 
-//pub(crate) struct MetaCreateIter<'a> {
-//    iter: [Option<(&'a str, OptionSerialize<'a>)>; 4],
-//    idx: usize,
-//}
-//
-//impl<'a> MetaCreateIter<'a> {
-//    pub fn new(owner: &'a MetaCreate<'a>) -> Self {
-//        let iter = [
-//            owner
-//                .with_fields
-//                .as_ref()
-//                .map(|v| (key::WITH_FIELDS, CommaDelimited::new(v).into())),
-//            owner
-//                .expand
-//                .as_ref()
-//                .map(|v| (key::EXPAND, CommaDelimited::new(v).into())),
-//            owner
-//                .fields_by_key
-//                .as_ref()
-//                .map(|v| (key::FIELDS_BY_KEY, (*v).into())),
-//            owner
-//                .properties
-//                .as_ref()
-//                .map(|v| (key::PROPERTIES, CommaDelimited::new(v).into())),
-//            owner
-//                .update_history
-//                .as_ref()
-//                .map(|v| (key::UPDATE_HISTORY, (*v).into())),
-//        ];
-//
-//        Self { iter, idx: 0 }
-//    }
-//}
-//
-//impl<'a> Iterator for MetaCreateIter<'a> {
-//    type Item = (&'a str, OptionSerialize<'a>);
-//
-//    fn next(&mut self) -> Option<Self::Item> {
-//        let mut next = None;
-//
-//        while let None = next {
-//            if self.idx > self.iter.len() {
-//                return None;
-//            }
-//
-//            if let Some(query) = self.iter.iter_mut().nth(self.idx).and_then(|o| o.take()) {
-//                next = Some(query)
-//            }
-//            self.idx += 1;
-//        }
-//
-//        next
-//    }
-//}
+pub(crate) struct MetaCreateIter<'a> {
+    iter: [Option<(&'a str, OptionSerialize<'a>)>; 5],
+    idx: usize,
+}
+
+impl<'a> MetaCreateIter<'a> {
+    pub fn new(owner: &'a MetaCreate) -> Self {
+        let iter = [
+            owner
+                .project_ids
+                .as_ref()
+                .map(|v| (key::PROJECT_IDS, v.into())),
+            owner
+                .project_keys
+                .as_ref()
+                .map(|v| (key::PROJECT_KEYS, v.into())),
+            owner
+                .issuetype_ids
+                .as_ref()
+                .map(|v| (key::ISSUETYPE_IDS, v.into())),
+            owner
+                .issuetype_keys
+                .as_ref()
+                .map(|v| (key::ISSUETYPE_KEYS, v.into())),
+            owner.expand.as_ref().map(|v| (key::EXPAND, v.into())),
+        ];
+
+        Self { iter, idx: 0 }
+    }
+}
+
+impl<'a> Iterator for MetaCreateIter<'a> {
+    type Item = (&'a str, OptionSerialize<'a>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut next = None;
+
+        while let None = next {
+            if self.idx > self.iter.len() {
+                return None;
+            }
+
+            if let Some(query) = self.iter.iter_mut().nth(self.idx).and_then(|o| o.take()) {
+                next = Some(query)
+            }
+            self.idx += 1;
+        }
+
+        next
+    }
+}

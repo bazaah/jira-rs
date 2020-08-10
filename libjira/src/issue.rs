@@ -19,11 +19,7 @@ impl Issues {
         }
     }
 
-    pub async fn get<K>(
-        &self,
-        key: K,
-        options: Option<&options::Get<'_>>,
-    ) -> Result<Issue, JiraError>
+    pub async fn get<K>(&self, key: K, options: Option<&options::Get>) -> Result<Issue, JiraError>
     where
         K: AsRef<str>,
     {
@@ -35,14 +31,17 @@ impl Issues {
             .await
     }
 
-    pub async fn search(&self, options: Option<&options::Search<'_>>) -> Result<Search, JiraError> {
+    pub async fn search(&self, options: Option<&options::Search>) -> Result<Search, JiraError> {
         let handler = |req| Ok(apply(options, req));
 
         self.client.get(&[SEARCH], handler)?.retrieve().await
     }
 
-    pub async fn meta_create(&self) -> Result<MetaCreate, JiraError> {
-        let handler = |req| Ok(req);
+    pub async fn meta_create(
+        &self,
+        options: Option<&options::MetaCreate>,
+    ) -> Result<MetaCreate, JiraError> {
+        let handler = |req| Ok(apply(options, req));
 
         self.client
             .get(&[ISSUE, CREATE_M], handler)?
