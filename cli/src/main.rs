@@ -37,6 +37,13 @@ async fn main() -> Result<()> {
 
                 json_pretty(stdout(), &search)?;
             }
+            IssuesCmd::Meta { ref opts } => {
+                let options: issue::options::MetaCreate = opts.into();
+
+                let meta_create = client.issues().meta_create(Some(&options)).await?;
+
+                json_pretty(stdout(), &meta_create)?;
+            }
         },
     }
 

@@ -1,5 +1,8 @@
-use jira_rs::client::Authentication;
-use structopt::{clap::ArgSettings, StructOpt};
+use {
+    jira_rs::client::Authentication,
+    std::str::FromStr,
+    structopt::{clap::ArgSettings, StructOpt},
+};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "jira", rename_all = "kebab")]
@@ -30,6 +33,7 @@ pub enum Command {
 #[derive(Debug, StructOpt)]
 #[structopt(rename_all = "kebab")]
 pub enum Issues {
+    /// Get a single issue by key or id
     Get {
         /// The issue key or id to retrieve
         #[structopt(value_name = "KEY/ID")]
@@ -38,6 +42,7 @@ pub enum Issues {
         #[structopt(flatten)]
         opts: options::IssuesGet,
     },
+    /// Search for issues using a JQL query
     Search {
         /// JQL query string to search with
         ///
@@ -48,6 +53,11 @@ pub enum Issues {
 
         #[structopt(flatten)]
         opts: options::IssuesSearch,
+    },
+    /// Find metadata for creating or editing issues
+    Meta {
+        #[structopt(flatten)]
+        opts: options::IssueMetadata,
     },
 }
 
@@ -132,8 +142,8 @@ pub mod options {
         pub properties: Option<String>,
     }
 
-    impl<'a> Into<options::Get<'a>> for &'a IssuesGet {
-        fn into(self) -> options::Get<'a> {
+    impl<'a> Into<options::Get> for &'a IssuesGet {
+        fn into(self) -> options::Get {
             options::Get::new()
                 .with_fields(self.fields.as_ref().map(|s| s.split(",")))
                 .expand(self.expand.as_ref().map(|s| s.split(",")))
@@ -199,8 +209,8 @@ pub mod options {
         pub validate: Option<options::ValidateQuery>,
     }
 
-    impl<'a> Into<options::Search<'a>> for &'a IssuesSearch {
-        fn into(self) -> options::Search<'a> {
+    impl<'a> Into<options::Search> for &'a IssuesSearch {
+        fn into(self) -> options::Search {
             options::Search::new()
                 .start_at(self.start_at)
                 .max_results(self.max_results)
@@ -209,6 +219,60 @@ pub mod options {
                 .expand(self.expand.as_ref().map(|s| s.split(",")))
                 .fields_by_key(Some(self.fields_by_key))
                 .properties(self.properties.as_ref().map(|s| s.split(",")))
+        }
+    }
+
+    #[derive(Debug, StructOpt)]
+    #[structopt(rename_all = "kebab")]
+    pub struct IssueMetadata {
+        /// List of projects to return issue-types for
+        ///
+        /// Default to returning all available projects.
+        #[structopt(short = "P", long, value_name = "KEY/ID")]
+        pub projects: Option<Vec<String>>,
+
+        /// List of issue-types to return schemas for
+        ///
+        /// Default to returning all available issue types.
+        #[structopt(short = "I", long, value_name = "KEY/ID")]
+        pub issue_types: Option<Vec<String>>,
+
+        /// Don't return schemas, only project/issue-type layout
+        ///
+        /// Useful for exploring possible values for --projects and --issue-types
+        #[structopt(short, long)]
+        pub short: bool,
+    }
+
+    impl<'a> Into<options::MetaCreate> for &'a IssueMetadata {
+        fn into(self) -> options::MetaCreate {
+            use options::MetaCreate;
+
+            let opts = self
+                .projects
+                .as_ref()
+                .map(|v| {
+                    v.into_iter()
+                        .fold(MetaCreate::new(), |o, ref i| match u64::from_str(i) {
+                            Ok(int) => o.project_ids(Some(Some(int).into_iter())),
+                            Err(_) => o.project_keys(Some(Some(i.as_str()).into_iter())),
+                        })
+                })
+                .and_then(|options| {
+                    self.issue_types.as_ref().map(|v| {
+                        v.into_iter()
+                            .fold(options, |o, ref i| match u64::from_str(i) {
+                                Ok(int) => o.issuetype_ids(Some(Some(int).into_iter())),
+                                Err(_) => o.issuetype_keys(Some(Some(i.as_str()).into_iter())),
+                            })
+                    })
+                })
+                .unwrap_or_default();
+
+            match self.short {
+                true => opts,
+                false => opts.expand(Some(Some("projects.issues.fields").into_iter())),
+            }
         }
     }
 
