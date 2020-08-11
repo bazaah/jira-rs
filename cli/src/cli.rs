@@ -271,7 +271,7 @@ pub mod options {
 
             match self.short {
                 true => opts,
-                false => opts.expand(Some(Some("projects.issues.fields").into_iter())),
+                false => opts.expand(Some(Some("projects.issuetypes.fields").into_iter())),
             }
         }
     }
