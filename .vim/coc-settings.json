@@ -2,6 +2,7 @@
   "cSpell.words": [
     "Jira",
     "Jira's",
+    "Reqwest's",
     "Smol",
     "createmeta",
     "deserialization",
@@ -10,6 +11,7 @@
     "issuetypes",
     "reqwest",
     "structopt",
+    "structs",
     "subcommand"
   ]
 }
