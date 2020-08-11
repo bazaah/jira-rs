@@ -19,7 +19,13 @@ impl Get {
         I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.with_fields = fields.map(|i| CommaDelimited::from_iter(i));
+        if let Some(value) = fields {
+            this.with_fields = this
+                .with_fields
+                .unwrap_or_default()
+                .with(|s| s.from_iter(value))
+                .into();
+        }
         this
     }
 
@@ -28,7 +34,13 @@ impl Get {
         I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.expand = expand.map(|i| CommaDelimited::from_iter(i));
+        if let Some(value) = expand {
+            this.expand = this
+                .expand
+                .unwrap_or_default()
+                .with(|s| s.from_iter(value))
+                .into();
+        }
         this
     }
 
@@ -37,7 +49,13 @@ impl Get {
         I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.properties = properties.map(|i| CommaDelimited::from_iter(i));
+        if let Some(value) = properties {
+            this.properties = this
+                .properties
+                .unwrap_or_default()
+                .with(|s| s.from_iter(value))
+                .into();
+        }
         this
     }
 

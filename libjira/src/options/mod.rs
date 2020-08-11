@@ -118,7 +118,16 @@ impl CommaDelimited {
         Self::default()
     }
 
-    fn add_item<T>(&mut self, item: T) -> &mut Self
+    fn with<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&mut Self),
+    {
+        let mut this = self;
+        f(&mut this);
+        this
+    }
+
+    fn add_item<T>(&mut self, item: T)
     where
         T: DelimitedItem,
     {
@@ -130,33 +139,28 @@ impl CommaDelimited {
                 item.write_item(&mut self.buffer);
             }
         }
-
-        self
     }
 
-    fn from_iter<I, T>(iter: I) -> Self
+    fn from_iter<I, T>(&mut self, iter: I)
     where
         I: Iterator<Item = T> + Clone,
         T: DelimitedItem,
     {
-        let mut this = Self::new();
         // Attempt to limit potential allocations to 1
         let len = iter.clone().fold(0, |acc, item| acc + item.length() + 1);
 
-        this.buffer.reserve(len);
+        self.buffer.reserve(len);
 
         iter.for_each(|item| {
-            this.add_item(item);
+            self.add_item(item);
         });
-
-        this
     }
 
-    fn from_slice<T>(items: &[T]) -> Self
+    fn from_slice<T>(&mut self, items: &[T])
     where
         T: AsRef<str>,
     {
-        Self::from_iter(items.iter().map(|i| i.as_ref()))
+        self.from_iter(items.iter().map(|i| i.as_ref()))
     }
 }
 

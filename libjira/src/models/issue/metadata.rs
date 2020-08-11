@@ -84,11 +84,12 @@ pub struct IssueFieldsMeta<'a> {
     pub name: &'a str,
     #[serde(rename = "fieldId")]
     pub field_id: &'a str,
-    #[serde(rename = "defaultValue")]
+    #[serde(rename = "defaultValue", skip_serializing_if = "Option::is_none")]
     pub default: Option<&'a RawJson>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub schema: Option<FieldSchema<'a>>,
     pub operations: Vec<Operations>,
-    #[serde(rename = "allowedValues")]
+    #[serde(rename = "allowedValues", skip_serializing_if = "Option::is_none")]
     pub possible_values: Option<Vec<&'a RawJson>>,
 }
 
@@ -101,12 +102,15 @@ pub struct FieldSchema<'a> {
     #[serde(rename = "type")]
     pub field_type: &'a str,
     // Mutually exclusive with 'custom'
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub system: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub custom: Option<&'a str>,
     // Only exists if 'custom' exists
-    #[serde(rename = "fieldId")]
+    #[serde(rename = "customId", skip_serializing_if = "Option::is_none")]
     pub custom_id: Option<u64>,
     // Only exists if 'field_type' == array
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub items: Option<&'a str>,
 }
 

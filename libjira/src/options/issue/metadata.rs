@@ -19,7 +19,13 @@ impl MetaCreate {
         I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.project_keys = project_keys.map(|i| CommaDelimited::from_iter(i));
+        if let Some(value) = project_keys {
+            this.project_keys = this
+                .project_keys
+                .unwrap_or_default()
+                .with(|s| s.from_iter(value))
+                .into();
+        }
         this
     }
 
@@ -28,7 +34,13 @@ impl MetaCreate {
         I: Iterator<Item = u64> + Clone,
     {
         let mut this = self;
-        this.project_ids = project_ids.map(|i| CommaDelimited::from_iter(i));
+        if let Some(value) = project_ids {
+            this.project_ids = this
+                .project_ids
+                .unwrap_or_default()
+                .with(|s| s.from_iter(value))
+                .into();
+        }
         this
     }
 
@@ -37,7 +49,13 @@ impl MetaCreate {
         I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.issuetype_keys = issuetype_keys.map(|i| CommaDelimited::from_iter(i));
+        if let Some(value) = issuetype_keys {
+            this.issuetype_keys = this
+                .issuetype_keys
+                .unwrap_or_default()
+                .with(|s| s.from_iter(value))
+                .into();
+        }
         this
     }
 
@@ -46,7 +64,13 @@ impl MetaCreate {
         I: Iterator<Item = u64> + Clone,
     {
         let mut this = self;
-        this.issuetype_ids = issuetype_ids.map(|i| CommaDelimited::from_iter(i));
+        if let Some(value) = issuetype_ids {
+            this.issuetype_ids = this
+                .issuetype_ids
+                .unwrap_or_default()
+                .with(|s| s.from_iter(value))
+                .into();
+        }
         this
     }
 
@@ -55,7 +79,13 @@ impl MetaCreate {
         I: Iterator<Item = &'a str> + Clone,
     {
         let mut this = self;
-        this.expand = expand.map(|i| CommaDelimited::from_iter(i));
+        if let Some(value) = expand {
+            this.expand = this
+                .expand
+                .unwrap_or_default()
+                .with(|s| s.from_iter(value))
+                .into();
+        }
         this
     }
 }

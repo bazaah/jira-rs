@@ -248,26 +248,21 @@ pub mod options {
         fn into(self) -> options::MetaCreate {
             use options::MetaCreate;
 
-            let opts = self
-                .projects
-                .as_ref()
-                .map(|v| {
-                    v.into_iter()
-                        .fold(MetaCreate::new(), |o, ref i| match u64::from_str(i) {
-                            Ok(int) => o.project_ids(Some(Some(int).into_iter())),
-                            Err(_) => o.project_keys(Some(Some(i.as_str()).into_iter())),
-                        })
+            let opts = MetaCreate::new();
+
+            let opts = try_use(opts, self.projects.as_ref(), |o, v| {
+                v.into_iter().fold(o, |o, ref i| match u64::from_str(i) {
+                    Ok(int) => o.project_ids(Some(Some(int).into_iter())),
+                    Err(_) => o.project_keys(Some(Some(i.as_str()).into_iter())),
                 })
-                .and_then(|options| {
-                    self.issue_types.as_ref().map(|v| {
-                        v.into_iter()
-                            .fold(options, |o, ref i| match u64::from_str(i) {
-                                Ok(int) => o.issuetype_ids(Some(Some(int).into_iter())),
-                                Err(_) => o.issuetype_keys(Some(Some(i.as_str()).into_iter())),
-                            })
-                    })
+            });
+
+            let opts = try_use(opts, self.issue_types.as_ref(), |o, v| {
+                v.into_iter().fold(o, |o, ref i| match u64::from_str(i) {
+                    Ok(int) => o.issuetype_ids(Some(Some(int).into_iter())),
+                    Err(_) => o.issuetype_keys(Some(Some(i.as_str()).into_iter())),
                 })
-                .unwrap_or_default();
+            });
 
             match self.short {
                 true => opts,
@@ -283,5 +278,15 @@ pub mod options {
                 "strict, warn, none", input
             )
         })
+    }
+
+    fn try_use<T, O, F>(target: T, op: Option<O>, f: F) -> T
+    where
+        F: FnOnce(T, O) -> T,
+    {
+        match op {
+            Some(op) => f(target, op),
+            None => target,
+        }
     }
 }
