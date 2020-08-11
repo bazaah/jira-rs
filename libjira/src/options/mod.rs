@@ -1,4 +1,5 @@
 use {
+    issue::ValidateQuery,
     reqwest::RequestBuilder,
     serde::{Serialize, Serializer},
 };
@@ -21,6 +22,13 @@ mod key {
     pub(super) const ISSUETYPE_KEYS: &'static str = "issuetypeNames";
 }
 
+/// Glue trait between Reqwest's .query() serializer
+/// and this library's various *Options structs
+///
+/// This serializer (urlencoded) is very particular about what types
+/// it will serialize. Namely, it only accepts a slice containing <N>
+/// two-element tuples where each element serializes as a str of
+/// some kind.
 pub(crate) trait ToQuery<'a> {
     type Queries: Iterator<Item = (&'a str, OptionSerialize<'a>)>;
 
@@ -32,31 +40,10 @@ pub(crate) trait ToQuery<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase", untagged)]
-pub enum ValidateQuery {
-    Strict,
-    Warn,
-    None,
-}
-
-impl ValidateQuery {
-    pub fn try_new(input: &str) -> Option<Self> {
-        match input {
-            "strict" => Some(Self::Strict),
-            "warn" => Some(Self::Warn),
-            "none" => Some(Self::None),
-            _ => None,
-        }
-    }
-}
-
-impl Default for ValidateQuery {
-    fn default() -> Self {
-        Self::Strict
-    }
-}
-
+/// Wrapper around the various types used by *Options structs
+///
+/// Each variant must serialize as something Reqwest's query
+/// serializer accepts
 #[derive(Debug, Serialize, Copy, Clone)]
 #[serde(untagged)]
 pub(crate) enum OptionSerialize<'a> {
@@ -127,7 +114,7 @@ struct CommaDelimited {
 }
 
 impl CommaDelimited {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self::default()
     }
 
@@ -147,7 +134,7 @@ impl CommaDelimited {
         self
     }
 
-    pub fn from_iter<I, T>(iter: I) -> Self
+    fn from_iter<I, T>(iter: I) -> Self
     where
         I: Iterator<Item = T> + Clone,
         T: DelimitedItem,
@@ -165,7 +152,7 @@ impl CommaDelimited {
         this
     }
 
-    pub fn from_slice<T>(items: &[T]) -> Self
+    fn from_slice<T>(items: &[T]) -> Self
     where
         T: AsRef<str>,
     {
@@ -222,3 +209,77 @@ impl DelimitedItem for u64 {
     }
 }
 
+#[cfg(test)]
+#[allow(unused_imports)]
+mod tests {
+    use super::*;
+    use pretty_assertions::{assert_eq, assert_ne};
+
+    const ALL: &'static [(&'static str, OptionSerialize<'static>)] = &[
+        ("key", OptionSerialize::Text("value")),
+        ("bool", OptionSerialize::Bool(true)),
+        ("comma", OptionSerialize::CommaDelimited("comma,delimited")),
+        ("validate", OptionSerialize::Validate(ValidateQuery::Strict)),
+        ("uint", OptionSerialize::Unsigned(42)),
+    ];
+    const EMPTY: &'static [(&'static str, OptionSerialize<'static>)] = &[];
+
+    #[test]
+    fn to_query_none() {
+        let r = request(EMPTY);
+        let queries = r.url().query();
+
+        dbg!(queries);
+        assert!(queries.is_none())
+    }
+
+    #[test]
+    fn to_query_all() {
+        let r = request(ALL);
+        let queries = r.url().query().expect("A non empty query string");
+
+        dbg!(queries);
+        assert_eq!(
+            queries,
+            "key=value&bool=true&comma=comma%2Cdelimited&validate=strict&uint=42"
+        )
+    }
+
+    #[derive(Debug, Clone)]
+    struct TestIter<'a> {
+        iter: std::slice::Iter<'a, (&'a str, OptionSerialize<'a>)>,
+    }
+
+    impl<'a> TestIter<'a> {
+        fn new(iter: std::slice::Iter<'a, (&'a str, OptionSerialize<'a>)>) -> Self {
+            Self { iter }
+        }
+    }
+
+    impl<'a> Iterator for TestIter<'a> {
+        type Item = (&'a str, OptionSerialize<'a>);
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.iter.next().map(|i| i.clone())
+        }
+    }
+
+    impl<'a> ToQuery<'a> for TestIter<'a> {
+        type Queries = Self;
+
+        fn to_queries(&'a self) -> Self::Queries {
+            self.clone()
+        }
+    }
+
+    fn request(from: &[(&str, OptionSerialize)]) -> reqwest::Request {
+        TestIter::new(from.iter())
+            .append_request(generate())
+            .build()
+            .expect("valid request")
+    }
+
+    fn generate() -> RequestBuilder {
+        reqwest::Client::new().get("http://localhost")
+    }
+}
