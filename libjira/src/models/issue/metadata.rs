@@ -3,6 +3,7 @@ use {
     json::{value::RawValue as RawJson, Error as JsonError},
     serde::{Deserialize, Serialize, Serializer},
     serde_json as json,
+    std::collections::HashMap,
 };
 
 /// Interface for accessing a zero copy representation
@@ -57,7 +58,15 @@ impl Serialize for MetaCreate {
 pub struct IssueMetadata<'a> {
     pub expand: Option<&'a str>,
     #[serde(borrow)]
-    pub projects: Vec<IssueTypeMeta<'a>>,
+    pub projects: Vec<ProjectMeta<'a>>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ProjectMeta<'a> {
+    #[serde(flatten, borrow)]
+    pub project: Project<'a>,
+    #[serde(rename = "issuetypes", borrow)]
+    issue_types: Vec<IssueTypeMeta<'a>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -65,7 +74,8 @@ pub struct IssueTypeMeta<'a> {
     #[serde(flatten, borrow)]
     pub issue_type: IssueType<'a>,
     // Only exists when API is queried with 'expand=projects.issues.fields'
-    pub fields: Option<Vec<IssueFieldsMeta<'a>>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fields: Option<HashMap<&'a str, IssueFieldsMeta<'a>>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -88,7 +98,7 @@ pub struct FieldSchema<'a> {
     /// One of: any,array,date,issuetype,number,option,
     /// priority,project,string,timestracking,user
     /// Probably has more variants
-    #[serde(rename = "field")]
+    #[serde(rename = "type")]
     pub field_type: &'a str,
     // Mutually exclusive with 'custom'
     pub system: Option<&'a str>,
@@ -100,10 +110,11 @@ pub struct FieldSchema<'a> {
     pub items: Option<&'a str>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Operations {
     Set,
+    Edit,
     Add,
     Remove,
 }
