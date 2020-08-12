@@ -12,20 +12,27 @@ use {
 #[serde(try_from = "Box<RawJson>")]
 pub struct MetaCreate {
     // This handle must never be exposed in the public API
-    inner: handle::CreateMetaHandle,
+    inner: handle::MetaCreateHandle,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct MetaCreateRef<'a> {
+    pub expand: Option<&'a str>,
+    #[serde(borrow)]
+    pub projects: Vec<ProjectMeta<'a>>,
 }
 
 impl MetaCreate {
     /// Try instantiate a new handle with the given backing JSON
     pub fn try_new(store: Box<RawJson>) -> Result<Self, JsonError> {
         let inner =
-            handle::CreateMetaHandle::try_new_or_drop(store, |json| json::from_str(json.get()))?;
+            handle::MetaCreateHandle::try_new_or_drop(store, |json| json::from_str(json.get()))?;
 
         Ok(Self { inner })
     }
 
     /// Access this handle's data
-    pub fn data(&self) -> &IssueMetadata {
+    pub fn data(&self) -> &MetaCreateRef {
         self.inner.suffix()
     }
 
@@ -54,11 +61,56 @@ impl Serialize for MetaCreate {
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(try_from = "Box<RawJson>")]
+pub struct MetaEdit {
+    // This handle must never be exposed in the public API
+    inner: handle::MetaEditHandle,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct IssueMetadata<'a> {
-    pub expand: Option<&'a str>,
+pub struct MetaEditRef<'a> {
     #[serde(borrow)]
-    pub projects: Vec<ProjectMeta<'a>>,
+    pub fields: HashMap<&'a str, IssueFieldsMeta<'a>>,
+}
+
+impl MetaEdit {
+    /// Try instantiate a new handle with the given backing JSON
+    pub fn try_new(store: Box<RawJson>) -> Result<Self, JsonError> {
+        let inner =
+            handle::MetaEditHandle::try_new_or_drop(store, |json| json::from_str(json.get()))?;
+
+        Ok(Self { inner })
+    }
+
+    /// Access this handle's data
+    pub fn data(&self) -> &MetaEditRef {
+        self.inner.suffix()
+    }
+
+    /// Consume the handle returning the backing
+    /// storage
+    pub fn into_inner(self) -> Box<RawJson> {
+        self.inner.into_head()
+    }
+}
+
+impl TryFrom<Box<RawJson>> for MetaEdit {
+    type Error = JsonError;
+
+    fn try_from(value: Box<RawJson>) -> Result<Self, Self::Error> {
+        Self::try_new(value)
+    }
+}
+
+// Delegate the serializer to the internal handle
+impl Serialize for MetaEdit {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.data().serialize(serializer)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -128,9 +180,15 @@ rental! {
         use super::*;
 
         #[rental(debug, covariant)]
-        pub(super) struct CreateMetaHandle {
+        pub(super) struct MetaCreateHandle {
             store: Box<RawJson>,
-            handle: IssueMetadata<'store>,
+            handle: MetaCreateRef<'store>,
+        }
+
+        #[rental(debug, covariant)]
+        pub(super) struct MetaEditHandle {
+            store: Box<RawJson>,
+            handle: MetaEditRef<'store>
         }
     }
 }

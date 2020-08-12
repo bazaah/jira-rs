@@ -3,7 +3,7 @@ pub use crate::{models::issue as models, options::issue as options};
 use {
     self::endpoint::*,
     crate::{client::Jira, error::JiraError, options::ToQuery},
-    models::{Issue, MetaCreate, Search},
+    models::{Issue, MetaCreate, MetaEdit, Search},
     reqwest::RequestBuilder,
 };
 
@@ -48,6 +48,16 @@ impl Issues {
             .retrieve()
             .await
     }
+
+    pub async fn meta_edit<K>(&self, key: K) -> Result<MetaEdit, JiraError>
+    where
+        K: AsRef<str>,
+    {
+        self.client
+            .get(&[ISSUE, key.as_ref(), EDIT_M], |req| Ok(req))?
+            .retrieve()
+            .await
+    }
 }
 
 fn apply<'a, O>(options: Option<&'a O>, req: RequestBuilder) -> RequestBuilder
@@ -64,4 +74,5 @@ mod endpoint {
     pub(super) const ISSUE: &'static str = "issue";
     pub(super) const SEARCH: &'static str = "search";
     pub(super) const CREATE_M: &'static str = "createmeta";
+    pub(super) const EDIT_M: &'static str = "editmeta";
 }
