@@ -37,13 +37,22 @@ async fn main() -> Result<()> {
 
                 json_pretty(stdout(), &search)?;
             }
-            IssuesCmd::Meta { ref opts } => {
-                let options: issue::options::MetaCreate = opts.into();
+            IssuesCmd::Meta { ref opts } => match &opts.edit {
+                // User provided a specific issue
+                Some(key) => {
+                    let meta_edit = client.issues().meta_edit(key).await?;
 
-                let meta_create = client.issues().meta_create(Some(&options)).await?;
+                    json_pretty(stdout(), &meta_edit)?;
+                }
+                // No issue, run a query based on options passed in
+                None => {
+                    let options: issue::options::MetaCreate = opts.into();
 
-                json_pretty(stdout(), &meta_create)?;
-            }
+                    let meta_create = client.issues().meta_create(Some(&options)).await?;
+
+                    json_pretty(stdout(), &meta_create)?;
+                }
+            },
         },
     }
 

@@ -237,6 +237,16 @@ pub mod options {
         #[structopt(short = "I", long, value_name = "KEY/ID")]
         pub issue_types: Option<Vec<String>>,
 
+        /// Get the field schema for a single issue
+        ///
+        /// This option is mutually exclusive with both
+        /// --projects and --issue-types which return a range
+        /// of matching issue schema(s)
+        #[structopt(short = "E", long, value_name = "KEY/ID")]
+        #[structopt(required_unless_one = &["projects", "issue_types"])]
+        #[structopt(conflicts_with_all = &["projects", "issue_types"])]
+        pub edit: Option<String>,
+
         /// Don't return schemas, only project/issue-type layout
         ///
         /// Useful for exploring possible values for --projects and --issue-types
