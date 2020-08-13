@@ -15,9 +15,9 @@ If you are interested in it being published please open an issue.
 
 | Status | Feature                 |
 | :---:  | :---------------------- |
-| [ ]    |  issue/create/metadata  |
+| [x]    |  issue/create/metadata  |
 | [ ]    |  issue/create           |
-| [ ]    |  issue/update/metadata  |
+| [x]    |  issue/update/metadata  |
 | [ ]    |  issue/update           |
 
 ## Prior Work
