@@ -4,7 +4,8 @@ use crate::cli::{CliOptions, Command, Issues as IssuesCmd};
 use {
     anyhow::{anyhow, Result},
     jira_rs::{client::Jira, issue},
-    serde_json::to_writer_pretty as json_pretty,
+    json::{to_writer_pretty as json_pretty, value::RawValue as RawJson},
+    serde_json as json,
     std::{convert::TryFrom, io::stdout, path::PathBuf},
 };
 
@@ -39,14 +40,14 @@ async fn main() -> Result<()> {
             }
             IssuesCmd::Create { ref data, ref opts } => {
                 let options: issue::options::Create = opts.into();
-                let data = DataSpec::try_from(data)?.as_bytes().await?;
+                let data = DataSpec::try_from(data)?.to_json().await?;
 
                 let created = client.issues().create(&data, Some(&options)).await?;
 
                 json_pretty(stdout(), &created)?;
             }
             IssuesCmd::Edit { ref key, ref data } => {
-                let data = DataSpec::try_from(data)?.as_bytes().await?;
+                let data = DataSpec::try_from(data)?.to_json().await?;
 
                 let edited = client.issues().edit(key, &data).await?;
 
@@ -82,17 +83,16 @@ enum DataSpec {
 }
 
 impl DataSpec {
-    pub async fn as_bytes(self) -> Result<Vec<u8>> {
+    pub async fn to_json(self) -> Result<Box<RawJson>> {
         use tokio::prelude::*;
         match self {
-            Self::Text(data) => Ok(data.into_bytes()),
-            Self::FilePath(path) => Ok(tokio::fs::read(&path).await?),
+            Self::Text(ref data) => Ok(json::from_str(data)?),
+            Self::FilePath(path) => Ok(json::from_slice(tokio::fs::read(&path).await?.as_ref())?),
             Self::Stdin => {
                 let mut data = Vec::new();
-
                 tokio::io::stdin().read_to_end(&mut data).await?;
 
-                Ok(data)
+                Ok(json::from_slice(&data)?)
             }
         }
     }
