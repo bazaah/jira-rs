@@ -80,6 +80,7 @@ impl<'a> ToQuery<'a> for Get {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct GetIter<'a> {
     iter: [Option<(&'a str, OptionSerialize<'a>)>; 5],
     idx: usize,

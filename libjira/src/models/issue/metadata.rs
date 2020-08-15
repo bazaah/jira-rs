@@ -1,7 +1,7 @@
 use {
     super::*,
     json::{value::RawValue as RawJson, Error as JsonError},
-    serde::{Deserialize, Serialize, Serializer},
+    serde::Serializer,
     serde_json as json,
     std::collections::HashMap,
 };

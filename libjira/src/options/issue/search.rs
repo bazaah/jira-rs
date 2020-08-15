@@ -104,6 +104,7 @@ impl<'a> ToQuery<'a> for Search {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct SearchIter<'a> {
     iter: [Option<(&'a str, OptionSerialize<'a>)>; 8],
     idx: usize,

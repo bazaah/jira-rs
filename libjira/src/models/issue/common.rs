@@ -1,8 +1,4 @@
-use {
-    super::*,
-    serde::{Deserialize, Serialize},
-    std::collections::HashMap,
-};
+use {super::*, serde::de::Deserializer, std::collections::HashMap};
 
 /// Representation of a Jira User
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -156,4 +152,43 @@ pub struct Priority<'a> {
     pub name: &'a str,
     #[serde(rename = "self")]
     pub self_link: &'a str,
+}
+
+/// One of the flavours of response returned by some
+/// endpoints. Nests the errors inside a sub-object.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct NestedResponse<'a> {
+    pub status: u64,
+    #[serde(
+        borrow,
+        rename = "errorCollection",
+        deserialize_with = "skip_errors",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub errors: Option<ErrorCollection<'a>>,
+}
+
+fn skip_errors<'a, 'de: 'a, D>(deserializer: D) -> Result<Option<ErrorCollection<'a>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let collection: ErrorCollection = Deserialize::deserialize(deserializer)?;
+
+    match collection.is_error() {
+        true => Ok(Some(collection)),
+        false => Ok(None),
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ErrorCollection<'a> {
+    #[serde(rename = "errorMessages", borrow)]
+    pub messages: Vec<&'a str>,
+    pub errors: HashMap<&'a str, &'a str>,
+}
+
+impl<'a> ErrorCollection<'a> {
+    pub fn is_error(&self) -> bool {
+        !(self.errors.is_empty() && self.messages.is_empty())
+    }
 }

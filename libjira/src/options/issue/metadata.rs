@@ -98,6 +98,7 @@ impl<'a> ToQuery<'a> for MetaCreate {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct MetaCreateIter<'a> {
     iter: [Option<(&'a str, OptionSerialize<'a>)>; 5],
     idx: usize,

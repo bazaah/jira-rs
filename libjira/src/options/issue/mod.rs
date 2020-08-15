@@ -1,10 +1,11 @@
+mod create;
 mod get;
 mod metadata;
 mod search;
 
 use super::*;
 
-pub use {get::*, metadata::*, search::*};
+pub use {create::*, get::*, metadata::*, search::*};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ValidateQuery {
