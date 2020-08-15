@@ -9,7 +9,12 @@ edition = "2018"
 [dependencies]
 reqwest = { version = "0.10", features = ["json"] }
 url = "2.1"
-smol_str = "0.1"
+itoa = "0.4"
 serde_json = { version = "1.0", features = ["raw_value"] }
 serde = { version = "1.0", features = ['derive'] }
 thiserror = "1.0"
+rental = "0.5"
+
+[dev-dependencies]
+pretty_assertions = "0.6.1"
+serde_test = "1.0"

@@ -4,8 +4,9 @@ use crate::cli::{CliOptions, Command, Issues as IssuesCmd};
 use {
     anyhow::{anyhow, Result},
     jira_rs::{client::Jira, issue},
-    serde_json::to_writer_pretty as json_pretty,
-    std::io::stdout,
+    json::{to_writer_pretty as json_pretty, value::RawValue as RawJson},
+    serde_json as json,
+    std::{convert::TryFrom, io::stdout, path::PathBuf},
 };
 
 #[tokio::main(core_threads = 2)]
@@ -37,8 +38,84 @@ async fn main() -> Result<()> {
 
                 json_pretty(stdout(), &search)?;
             }
+            IssuesCmd::Create { ref data, ref opts } => {
+                let options: issue::options::Create = opts.into();
+                let data = DataSpec::try_from(data)?.to_json().await?;
+
+                let created = client.issues().create(&data, Some(&options)).await?;
+
+                json_pretty(stdout(), &created)?;
+            }
+            IssuesCmd::Edit { ref key, ref data } => {
+                let data = DataSpec::try_from(data)?.to_json().await?;
+
+                let edited = client.issues().edit(key, &data).await?;
+
+                json_pretty(stdout(), &edited)?;
+            }
+            IssuesCmd::Meta { ref opts } => match &opts.edit {
+                // User provided a specific issue
+                Some(key) => {
+                    let meta_edit = client.issues().meta_edit(key).await?;
+
+                    json_pretty(stdout(), &meta_edit)?;
+                }
+                // No issue, run a query based on options passed in
+                None => {
+                    let options: issue::options::MetaCreate = opts.into();
+
+                    let meta_create = client.issues().meta_create(Some(&options)).await?;
+
+                    json_pretty(stdout(), &meta_create)?;
+                }
+            },
         },
     }
 
     Ok(())
+}
+
+#[derive(Debug, Clone)]
+enum DataSpec {
+    Text(String),
+    FilePath(PathBuf),
+    Stdin,
+}
+
+impl DataSpec {
+    pub async fn to_json(self) -> Result<Box<RawJson>> {
+        use tokio::prelude::*;
+        match self {
+            Self::Text(ref data) => Ok(json::from_str(data)?),
+            Self::FilePath(path) => Ok(json::from_slice(tokio::fs::read(&path).await?.as_ref())?),
+            Self::Stdin => {
+                let mut data = Vec::new();
+                tokio::io::stdin().read_to_end(&mut data).await?;
+
+                Ok(json::from_slice(&data)?)
+            }
+        }
+    }
+}
+
+impl TryFrom<&str> for DataSpec {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "-" => Ok(Self::Stdin),
+            maybe_file => Ok(maybe_file
+                .strip_prefix("@")
+                .map(|path| Self::FilePath(PathBuf::from(path)))
+                .unwrap_or_else(|| Self::Text(maybe_file.to_string()))),
+        }
+    }
+}
+
+impl TryFrom<&String> for DataSpec {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        DataSpec::try_from(value.as_str())
+    }
 }

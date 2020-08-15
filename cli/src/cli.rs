@@ -1,5 +1,8 @@
-use jira_rs::client::Authentication;
-use structopt::{clap::ArgSettings, StructOpt};
+use {
+    jira_rs::client::Authentication,
+    std::str::FromStr,
+    structopt::{clap::ArgSettings, StructOpt},
+};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "jira", rename_all = "kebab")]
@@ -30,6 +33,7 @@ pub enum Command {
 #[derive(Debug, StructOpt)]
 #[structopt(rename_all = "kebab")]
 pub enum Issues {
+    /// Get a single issue by key or id
     Get {
         /// The issue key or id to retrieve
         #[structopt(value_name = "KEY/ID")]
@@ -38,6 +42,7 @@ pub enum Issues {
         #[structopt(flatten)]
         opts: options::IssuesGet,
     },
+    /// Search for issues using a JQL query
     Search {
         /// JQL query string to search with
         ///
@@ -48,6 +53,37 @@ pub enum Issues {
 
         #[structopt(flatten)]
         opts: options::IssuesSearch,
+    },
+    /// Find metadata for creating or editing issues
+    Meta {
+        #[structopt(flatten)]
+        opts: options::IssueMetadata,
+    },
+    /// Create new issues
+    Create {
+        /// The data to populate in the new issue
+        ///
+        /// This option is aware of two special values
+        /// '-' will be treated as stdin
+        /// '@<pathspec>' will be treated as a filename to read the data from
+        #[structopt(short, long, value_name = "DATA")]
+        data: String,
+
+        #[structopt(flatten)]
+        opts: options::IssueCreate,
+    },
+    /// Edit existing issues
+    Edit {
+        #[structopt(value_name = "KEY/ID")]
+        key: String,
+
+        /// The data to change in the given issue
+        ///
+        /// This option is aware of two special values
+        /// '-' will be treated as stdin
+        /// '@<pathspec>' will be treated as a filename to read the data from
+        #[structopt(short, long, value_name = "DATA")]
+        data: String,
     },
 }
 
@@ -132,8 +168,8 @@ pub mod options {
         pub properties: Option<String>,
     }
 
-    impl<'a> Into<options::Get<'a>> for &'a IssuesGet {
-        fn into(self) -> options::Get<'a> {
+    impl<'a> Into<options::Get> for &'a IssuesGet {
+        fn into(self) -> options::Get {
             options::Get::new()
                 .with_fields(self.fields.as_ref().map(|s| s.split(",")))
                 .expand(self.expand.as_ref().map(|s| s.split(",")))
@@ -199,8 +235,8 @@ pub mod options {
         pub validate: Option<options::ValidateQuery>,
     }
 
-    impl<'a> Into<options::Search<'a>> for &'a IssuesSearch {
-        fn into(self) -> options::Search<'a> {
+    impl<'a> Into<options::Search> for &'a IssuesSearch {
+        fn into(self) -> options::Search {
             options::Search::new()
                 .start_at(self.start_at)
                 .max_results(self.max_results)
@@ -212,6 +248,82 @@ pub mod options {
         }
     }
 
+    #[derive(Debug, StructOpt)]
+    #[structopt(rename_all = "kebab")]
+    pub struct IssueCreate {
+        /// Should this request update the user's search history?
+        ///
+        /// Specifically, the user's last.Viewed issue and the
+        /// user's recently viewed Projects
+        #[structopt(short, long)]
+        pub update_history: bool,
+    }
+
+    impl Into<options::Create> for &IssueCreate {
+        fn into(self) -> options::Create {
+            options::Create::new().update_history(Some(self.update_history))
+        }
+    }
+
+    #[derive(Debug, StructOpt)]
+    #[structopt(rename_all = "kebab")]
+    pub struct IssueMetadata {
+        /// List of projects to return issue-types for
+        ///
+        /// Default to returning all available projects.
+        #[structopt(short = "P", long, value_name = "KEY/ID")]
+        pub projects: Option<Vec<String>>,
+
+        /// List of issue-types to return schemas for
+        ///
+        /// Default to returning all available issue types.
+        #[structopt(short = "I", long, value_name = "KEY/ID")]
+        pub issue_types: Option<Vec<String>>,
+
+        /// Get the field schema for a single issue
+        ///
+        /// This option is mutually exclusive with both
+        /// --projects and --issue-types which return a range
+        /// of matching issue schema(s)
+        #[structopt(short = "E", long, value_name = "KEY/ID")]
+        #[structopt(required_unless_one = &["projects", "issue_types"])]
+        #[structopt(conflicts_with_all = &["projects", "issue_types"])]
+        pub edit: Option<String>,
+
+        /// Don't return schemas, only project/issue-type layout
+        ///
+        /// Useful for exploring possible values for --projects and --issue-types
+        #[structopt(short, long)]
+        pub short: bool,
+    }
+
+    impl<'a> Into<options::MetaCreate> for &'a IssueMetadata {
+        fn into(self) -> options::MetaCreate {
+            use options::MetaCreate;
+
+            let opts = MetaCreate::new();
+
+            let opts = try_use(opts, self.projects.as_ref(), |o, v| {
+                v.into_iter().fold(o, |o, ref i| match u64::from_str(i) {
+                    Ok(int) => o.project_ids(Some(Some(int).into_iter())),
+                    Err(_) => o.project_keys(Some(Some(i.as_str()).into_iter())),
+                })
+            });
+
+            let opts = try_use(opts, self.issue_types.as_ref(), |o, v| {
+                v.into_iter().fold(o, |o, ref i| match u64::from_str(i) {
+                    Ok(int) => o.issuetype_ids(Some(Some(int).into_iter())),
+                    Err(_) => o.issuetype_keys(Some(Some(i.as_str()).into_iter())),
+                })
+            });
+
+            match self.short {
+                true => opts,
+                false => opts.expand(Some(Some("projects.issuetypes.fields").into_iter())),
+            }
+        }
+    }
+
     fn try_into_validate(input: &str) -> Result<options::ValidateQuery, String> {
         options::ValidateQuery::try_new(input).ok_or_else(|| {
             format!(
@@ -219,5 +331,15 @@ pub mod options {
                 "strict, warn, none", input
             )
         })
+    }
+
+    fn try_use<T, O, F>(target: T, op: Option<O>, f: F) -> T
+    where
+        F: FnOnce(T, O) -> T,
+    {
+        match op {
+            Some(op) => f(target, op),
+            None => target,
+        }
     }
 }
