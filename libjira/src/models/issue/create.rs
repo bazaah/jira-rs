@@ -53,10 +53,14 @@ impl Serialize for Created {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CreatedRef<'a> {
+    #[serde(with = "common::id")]
     id: u64,
     key: &'a str,
+    #[serde(rename = "self")]
     self_link: &'a str,
-    transition: NestedResponse<'a>,
+    // Only exists if a transition was requested in the associated request
+    #[serde(skip_serializing_if = "Option::is_none")]
+    transition: Option<NestedResponse<'a>>,
 }
 
 rental! {
