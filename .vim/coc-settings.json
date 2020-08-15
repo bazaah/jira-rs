@@ -10,6 +10,7 @@
     "issuetype",
     "issuetypes",
     "reqwest",
+    "serializable",
     "structopt",
     "structs",
     "subcommand"
