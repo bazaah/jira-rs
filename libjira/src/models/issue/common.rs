@@ -1,4 +1,9 @@
-use {super::*, serde::de::Deserializer, std::collections::HashMap};
+use {
+    super::*,
+    serde::{de, ser::Serializer},
+    std::collections::HashMap,
+    std::fmt,
+};
 
 /// Representation of a Jira User
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -25,7 +30,8 @@ pub struct Status<'a> {
     pub description: &'a str,
     #[serde(rename = "iconUrl")]
     pub icon_url: &'a str,
-    pub id: &'a str,
+    #[serde(with = "id")]
+    pub id: u64,
     pub name: &'a str,
     #[serde(rename = "self")]
     pub self_link: &'a str,
@@ -38,7 +44,8 @@ pub struct IssueType<'a> {
     pub description: &'a str,
     #[serde(rename = "iconUrl")]
     pub icon_url: &'a str,
-    pub id: &'a str,
+    #[serde(with = "id")]
+    pub id: u64,
     pub name: &'a str,
     #[serde(rename = "self")]
     pub self_link: &'a str,
@@ -49,7 +56,8 @@ pub struct IssueType<'a> {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Version<'a> {
     pub archived: bool,
-    pub id: &'a str,
+    #[serde(with = "id")]
+    pub id: u64,
     pub name: &'a str,
     pub released: bool,
     #[serde(rename = "self")]
@@ -95,7 +103,8 @@ pub struct Visibility<'a> {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Project<'a> {
-    pub id: &'a str,
+    #[serde(with = "id")]
+    pub id: u64,
     #[serde(rename = "self")]
     pub self_link: &'a str,
     pub key: &'a str,
@@ -104,7 +113,8 @@ pub struct Project<'a> {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct IssueLink<'a> {
-    pub id: &'a str,
+    #[serde(with = "id")]
+    pub id: u64,
     #[serde(rename = "self")]
     pub self_link: &'a str,
     #[serde(rename = "outwardIssue")]
@@ -117,7 +127,8 @@ pub struct IssueLink<'a> {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LinkType<'a> {
-    pub id: &'a str,
+    #[serde(with = "id")]
+    pub id: u64,
     pub inward: &'a str,
     pub name: &'a str,
     pub outward: &'a str,
@@ -132,7 +143,8 @@ pub struct Resolution<'a> {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Attachment<'a> {
-    pub id: &'a str,
+    #[serde(with = "id")]
+    pub id: u64,
     #[serde(rename = "self")]
     pub self_link: &'a str,
     pub filename: &'a str,
@@ -148,7 +160,8 @@ pub struct Attachment<'a> {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Priority<'a> {
     pub icon_url: &'a str,
-    pub id: &'a str,
+    #[serde(with = "id")]
+    pub id: u64,
     pub name: &'a str,
     #[serde(rename = "self")]
     pub self_link: &'a str,
@@ -170,7 +183,7 @@ pub struct NestedResponse<'a> {
 
 fn skip_errors<'a, 'de: 'a, D>(deserializer: D) -> Result<Option<ErrorCollection<'a>>, D::Error>
 where
-    D: Deserializer<'de>,
+    D: de::Deserializer<'de>,
 {
     let collection: ErrorCollection = Deserialize::deserialize(deserializer)?;
 
@@ -190,5 +203,112 @@ pub struct ErrorCollection<'a> {
 impl<'a> ErrorCollection<'a> {
     pub fn is_error(&self) -> bool {
         !(self.errors.is_empty() && self.messages.is_empty())
+    }
+}
+
+/// Use this module as a 'serde with' attribute on JIRA id fields
+/// to correctly de/serialize the JSON string representations as `u64`s
+pub mod id {
+    use {super::*, itoa::Buffer};
+
+    pub fn serialize<S>(id: &u64, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        Id::from(*id).serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let id: Id = Deserialize::deserialize(deserializer)?;
+
+        Ok(id.into())
+    }
+
+    #[derive(Debug, Clone, Copy)]
+    struct Id {
+        id: u64,
+    }
+
+    impl Id {
+        fn new(id: u64) -> Self {
+            Self { id }
+        }
+    }
+
+    impl<'de> Deserialize<'de> for Id {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: de::Deserializer<'de>,
+        {
+            struct IdVisitor;
+
+            impl<'de> de::Visitor<'de> for IdVisitor {
+                type Value = Id;
+
+                fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                    f.write_str("a JIRA object id")
+                }
+
+                fn visit_u64<E>(self, id: u64) -> Result<Self::Value, E>
+                where
+                    E: de::Error,
+                {
+                    Ok(Id::new(id))
+                }
+
+                fn visit_str<E>(self, id: &str) -> Result<Self::Value, E>
+                where
+                    E: de::Error,
+                {
+                    let id: u64 = id.parse().map_err(de::Error::custom)?;
+
+                    Ok(Id::new(id))
+                }
+            }
+
+            deserializer.deserialize_any(IdVisitor)
+        }
+    }
+
+    impl Serialize for Id {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            serializer.serialize_str(Buffer::new().format(self.id))
+        }
+    }
+
+    impl From<u64> for Id {
+        fn from(n: u64) -> Self {
+            Self::new(n)
+        }
+    }
+
+    impl From<u32> for Id {
+        fn from(n: u32) -> Self {
+            Self::new(n as u64)
+        }
+    }
+
+    impl From<u16> for Id {
+        fn from(n: u16) -> Self {
+            Self::new(n as u64)
+        }
+    }
+
+    impl From<u8> for Id {
+        fn from(n: u8) -> Self {
+            Self::new(n as u64)
+        }
+    }
+
+    impl From<Id> for u64 {
+        fn from(id: Id) -> Self {
+            id.id
+        }
     }
 }
