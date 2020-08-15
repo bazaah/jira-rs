@@ -59,6 +59,32 @@ pub enum Issues {
         #[structopt(flatten)]
         opts: options::IssueMetadata,
     },
+    /// Create new issues
+    Create {
+        /// The data to populate in the new issue
+        ///
+        /// This option is aware of two special values
+        /// '-' will be treated as stdin
+        /// '@<pathspec>' will be treated as a filename to read the data from
+        #[structopt(short, long, value_name = "DATA")]
+        data: String,
+
+        #[structopt(flatten)]
+        opts: options::IssueCreate,
+    },
+    /// Edit existing issues
+    Edit {
+        #[structopt(value_name = "KEY/ID")]
+        key: String,
+
+        /// The data to change in the given issue
+        ///
+        /// This option is aware of two special values
+        /// '-' will be treated as stdin
+        /// '@<pathspec>' will be treated as a filename to read the data from
+        #[structopt(short, long, value_name = "DATA")]
+        data: String,
+    },
 }
 
 impl CliOptions {
@@ -219,6 +245,23 @@ pub mod options {
                 .expand(self.expand.as_ref().map(|s| s.split(",")))
                 .fields_by_key(Some(self.fields_by_key))
                 .properties(self.properties.as_ref().map(|s| s.split(",")))
+        }
+    }
+
+    #[derive(Debug, StructOpt)]
+    #[structopt(rename_all = "kebab")]
+    pub struct IssueCreate {
+        /// Should this request update the user's search history?
+        ///
+        /// Specifically, the user's last.Viewed issue and the
+        /// user's recently viewed Projects
+        #[structopt(short, long)]
+        pub update_history: bool,
+    }
+
+    impl Into<options::Create> for &IssueCreate {
+        fn into(self) -> options::Create {
+            options::Create::new().update_history(Some(self.update_history))
         }
     }
 
