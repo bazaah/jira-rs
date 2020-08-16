@@ -5,6 +5,7 @@ use {
     },
     reqwest::{header, Client, Method, RequestBuilder},
     serde::de::DeserializeOwned,
+    serde_json as json,
     std::sync::Arc,
     url::{Position, Url},
 };
@@ -119,7 +120,16 @@ impl JiraRequest {
                     errors: response.json::<ApiError>().await?,
                 }))
             }
-            _ => Ok(response.json::<T>().await?),
+            _ => {
+                let body = response.bytes().await?;
+
+                // Handle empty responses in a manner serde_json can interpret
+                if body.is_empty() || body == b"null".as_ref() {
+                    Ok(json::from_slice(&b"{}".to_vec())?)
+                } else {
+                    Ok(json::from_slice(&body)?)
+                }
+            }
         }
     }
 }

@@ -2,7 +2,7 @@ pub use crate::{models::issue as models, options::issue as options};
 
 use {
     self::endpoint::*,
-    crate::{client::Jira, error::JiraError, options::ToQuery},
+    crate::{client::Jira, error::JiraError, models::empty::Empty, options::ToQuery},
     models::{Created, Issue, MetaCreate, MetaEdit, Search},
     reqwest::RequestBuilder,
     serde::Serialize,
@@ -85,7 +85,7 @@ impl Issues {
         self.client.post(&[ISSUE], handler)?.retrieve().await
     }
 
-    /// Edit an existing issue with the following serializable changes
+    /// Edit an existing issue with the passed serializable changes
     ///
     /// These changes should include at least one of:
     /// - fields: ...
@@ -93,7 +93,7 @@ impl Issues {
     ///
     /// You can use the `meta_edit` method to get the schema of this issue's
     /// changeable fields.
-    pub async fn edit<K, T>(&self, key: K, changes: &T) -> Result<serde_json::Value, JiraError>
+    pub async fn edit<K, T>(&self, key: K, changes: &T) -> Result<(), JiraError>
     where
         K: AsRef<str>,
         T: Serialize,
@@ -102,8 +102,9 @@ impl Issues {
 
         self.client
             .put(&[ISSUE, key.as_ref()], handler)?
-            .retrieve()
+            .retrieve::<Empty>()
             .await
+            .map(Into::into)
     }
 
     /// Retrieve metadata about this JIRA's project's

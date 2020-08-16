@@ -4,7 +4,7 @@ A library for interacting with Jira's API in Rust.
 
 ## Status
 
-This library is still in very early development, and has a very limited set of features.
+This library is still in early development, and has a very limited set of features.
 It will be filled out over the coming weekends, you can check the currently supported
 API endpoints here: [Features](./features.md).
 
@@ -13,12 +13,9 @@ If you are interested in it being published please open an issue.
 
 ## Under Development
 
-| Status | Feature                 |
-| :---:  | :---------------------- |
-| [x]    |  issue/create/metadata  |
-| [ ]    |  issue/create           |
-| [x]    |  issue/update/metadata  |
-| [ ]    |  issue/update           |
+- [ ] options/unit-tests
+- [ ] models/unit-tests
+- [ ] models/documentation
 
 ## Prior Work
 
