@@ -81,7 +81,8 @@ impl<'a> Into<Vec<Comment<'a>>> for Comments<'a> {
 /// Representation of a Jira comment
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Comment<'a> {
-    pub id: Option<&'a str>,
+    #[serde(with = "id")]
+    pub id: u64,
     #[serde(rename = "self")]
     pub self_link: &'a str,
     pub author: Option<User<'a>>,
