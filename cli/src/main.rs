@@ -49,9 +49,12 @@ async fn main() -> Result<()> {
             IssuesCmd::Edit { ref key, ref data } => {
                 let data = DataSpec::try_from(data)?.to_json().await?;
 
-                let edited = client.issues().edit(key, &data).await?;
+                client.issues().edit(key, &data).await?;
 
-                json_pretty(stdout(), &edited)?;
+                json_pretty(
+                    stdout(),
+                    &json::json!({key: "Successfully updated", "data": data}),
+                )?;
             }
             IssuesCmd::Meta { ref opts } => match &opts.edit {
                 // User provided a specific issue
