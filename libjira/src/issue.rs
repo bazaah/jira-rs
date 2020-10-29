@@ -144,8 +144,8 @@ where
 }
 
 mod endpoint {
-    pub(super) const ISSUE: &'static str = "issue";
-    pub(super) const SEARCH: &'static str = "search";
-    pub(super) const CREATE_M: &'static str = "createmeta";
-    pub(super) const EDIT_M: &'static str = "editmeta";
+    pub(super) const ISSUE: &str = "issue";
+    pub(super) const SEARCH: &str = "search";
+    pub(super) const CREATE_M: &str = "createmeta";
+    pub(super) const EDIT_M: &str = "editmeta";
 }

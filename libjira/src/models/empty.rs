@@ -44,7 +44,5 @@ impl<'de> Visitor<'de> for EmptyVisitor {
 }
 
 impl From<Empty> for () {
-    fn from(_: Empty) -> Self {
-        ()
-    }
+    fn from(_: Empty) -> Self {}
 }

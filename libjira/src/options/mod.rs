@@ -7,19 +7,19 @@ use {
 pub mod issue;
 
 mod key {
-    pub(super) const JQL: &'static str = "jql";
-    pub(super) const START_AT: &'static str = "startAt";
-    pub(super) const MAX_RESULTS: &'static str = "maxResults";
-    pub(super) const VALIDATE_QUERY: &'static str = "validateQuery";
-    pub(super) const WITH_FIELDS: &'static str = "fields";
-    pub(super) const EXPAND: &'static str = "expand";
-    pub(super) const PROPERTIES: &'static str = "properties";
-    pub(super) const FIELDS_BY_KEY: &'static str = "fieldsByKeys";
-    pub(super) const UPDATE_HISTORY: &'static str = "updateHistory";
-    pub(super) const PROJECT_IDS: &'static str = "projectIds";
-    pub(super) const PROJECT_KEYS: &'static str = "projectKeys";
-    pub(super) const ISSUETYPE_IDS: &'static str = "issuetypeIds";
-    pub(super) const ISSUETYPE_KEYS: &'static str = "issuetypeNames";
+    pub(super) const JQL: &str = "jql";
+    pub(super) const START_AT: &str = "startAt";
+    pub(super) const MAX_RESULTS: &str = "maxResults";
+    pub(super) const VALIDATE_QUERY: &str = "validateQuery";
+    pub(super) const WITH_FIELDS: &str = "fields";
+    pub(super) const EXPAND: &str = "expand";
+    pub(super) const PROPERTIES: &str = "properties";
+    pub(super) const FIELDS_BY_KEY: &str = "fieldsByKeys";
+    pub(super) const UPDATE_HISTORY: &str = "updateHistory";
+    pub(super) const PROJECT_IDS: &str = "projectIds";
+    pub(super) const PROJECT_KEYS: &str = "projectKeys";
+    pub(super) const ISSUETYPE_IDS: &str = "issuetypeIds";
+    pub(super) const ISSUETYPE_KEYS: &str = "issuetypeNames";
 }
 
 /// Glue trait between Reqwest's .query() serializer
