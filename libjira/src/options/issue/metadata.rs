@@ -1,5 +1,7 @@
 use super::*;
 
+/// Options for querying the create variant of Jira's issue metadata
+/// endpoint.
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct MetaCreate {
     #[serde(rename = "projectIds")]
@@ -19,10 +21,18 @@ pub struct MetaCreate {
 }
 
 impl MetaCreate {
+    /// Instantiate a new, empty options set
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Narrow the returned issue metadata to issues belonging to the
+    /// given projects, by key. These typically correspond to the
+    /// human readable names of projects.
+    ///
+    /// Note that entries are additive, i.e given projects `P1` and
+    /// `P2`, the endpoint will return _issues ∈ P1 ∪ P2_. Additionally,
+    /// entries are additive with `project_ids` entries.
     pub fn project_keys<I, T>(&mut self, keys: I) -> &mut Self
     where
         I: IntoIterator<Item = T>,
@@ -35,6 +45,13 @@ impl MetaCreate {
         self
     }
 
+    /// Narrow the returned issue metadata to issues belonging to the
+    /// given projects, by id. These are the programmatic representations
+    /// of Jira projects.
+    ///
+    /// Note that entries are additive, i.e given projects `P1` and
+    /// `P2`, the endpoint will return _issues ∈ P1 ∪ P2_. Additionally,
+    /// entries are additive with `project_keys` entries.
     pub fn project_ids<I, T>(&mut self, ids: I) -> &mut Self
     where
         I: IntoIterator<Item = T>,
@@ -44,6 +61,13 @@ impl MetaCreate {
         self
     }
 
+    /// Narrow the returned issue metadata to issues of the given type keys.
+    /// Typical examples include `Theme`(s), `Spike`(s) or `Story`(ies). These
+    /// entries are case sensitive and tend to vary between Jira instances.
+    /// If possible, address issue types using the `_id` variant.
+    ///
+    /// Note that entries are additive with entries of `issuetype_ids`:
+    /// _types ∈ KEYS ∪ IDS_
     pub fn issuetype_keys<I, T>(&mut self, keys: I) -> &mut Self
     where
         I: IntoIterator<Item = T>,
@@ -56,6 +80,10 @@ impl MetaCreate {
         self
     }
 
+    /// Narrow the returned issue metadata to issues of the given type ids.
+    ///
+    /// Note that entries are additive with entries of `issuetype_keys`:
+    /// _types ∈ KEYS ∪ IDS_
     pub fn issuetype_ids<I, T>(&mut self, ids: I) -> &mut Self
     where
         I: IntoIterator<Item = T>,
@@ -65,6 +93,13 @@ impl MetaCreate {
         self
     }
 
+    /// The Jira expandable for this endpoint. This one recognizes
+    /// `projects.issuetypes.fields`. You can include any subsegment, however
+    /// the effects are only noticeable with all three.
+    ///
+    /// Not including this in a metadata query will return a very limited
+    /// output -- which can be good for exploring possible issue candidates
+    /// relatively cheaply, before expanding the spec of your target issues.
     pub fn expand<I, T>(&mut self, expand: I) -> &mut Self
     where
         I: IntoIterator<Item = T>,
@@ -77,6 +112,7 @@ impl MetaCreate {
         self
     }
 
+    /// Helper function for emulating a builder pattern
     pub fn with<F>(self, f: F) -> Self
     where
         F: FnOnce(&mut Self) -> &mut Self,
