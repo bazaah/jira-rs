@@ -13,7 +13,7 @@ If you are interested in it being published please open an issue.
 
 ## Under Development
 
-- [ ] options/unit-tests
+- [x] options/unit-tests
 - [ ] models/unit-tests
 - [ ] models/documentation
 
