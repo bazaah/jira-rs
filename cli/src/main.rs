@@ -1,6 +1,6 @@
 mod cli;
 
-use crate::cli::{CliOptions, Command, Issues as IssuesCmd};
+use crate::cli::{CliOptions, Command, Issues as IssuesCmd, MetaKind};
 use {
     anyhow::{anyhow, Result},
     jira_rs::{client::Jira, issue},
@@ -29,12 +29,9 @@ async fn main() -> Result<()> {
                 json_pretty(stdout, &issue)?;
             }
             IssuesCmd::Search { ref jql, ref opts } => {
-                let options: issue::options::Search = opts.into();
+                let options = opts.as_options().with(|this| this.jql(jql));
 
-                let search = client
-                    .issues()
-                    .search(Some(&options.jql(Some(jql))))
-                    .await?;
+                let search = client.issues().search(Some(&options)).await?;
 
                 json_pretty(stdout(), &search)?;
             }
@@ -56,17 +53,15 @@ async fn main() -> Result<()> {
                     &json::json!({key: "Successfully updated", "data": data}),
                 )?;
             }
-            IssuesCmd::Meta { ref opts } => match &opts.edit {
+            IssuesCmd::Meta { ref opts } => match MetaKind::from(opts) {
                 // User provided a specific issue
-                Some(key) => {
-                    let meta_edit = client.issues().meta_edit(key).await?;
+                MetaKind::Edit(issue) => {
+                    let meta_edit = client.issues().meta_edit(issue).await?;
 
                     json_pretty(stdout(), &meta_edit)?;
                 }
                 // No issue, run a query based on options passed in
-                None => {
-                    let options: issue::options::MetaCreate = opts.into();
-
+                MetaKind::Create(options) => {
                     let meta_create = client.issues().meta_create(Some(&options)).await?;
 
                     json_pretty(stdout(), &meta_create)?;
