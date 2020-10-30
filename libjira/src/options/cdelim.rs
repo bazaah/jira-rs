@@ -8,7 +8,7 @@ use {
 };
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct CommaDelimited {
+pub(crate) struct CommaDelimited {
     buffer: String,
 }
 
@@ -60,7 +60,10 @@ impl CommaDelimited {
     }
 }
 
-impl<T> From<T> for CommaDelimited where T: Into<Element> {
+impl<T> From<T> for CommaDelimited
+where
+    T: Into<Element>,
+{
     fn from(elem: T) -> Self {
         Self::new().with(|this| this.append(elem.into()))
     }
@@ -98,7 +101,7 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub enum Element {
+pub(crate) enum Element {
     Text(SmolStr),
     Number(Number),
     Boolean(bool),
@@ -150,6 +153,12 @@ impl From<&str> for Element {
 impl From<String> for Element {
     fn from(s: String) -> Self {
         Self::Text(SmolStr::new(s))
+    }
+}
+
+impl From<Number> for Element {
+    fn from(n: Number) -> Self {
+        Self::Number(n)
     }
 }
 
@@ -220,7 +229,7 @@ impl From<bool> for Element {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Number {
+pub(crate) enum Number {
     // Zero or positive
     Positive(u64),
     // Always negative
@@ -385,7 +394,10 @@ mod tests {
     #[test]
     fn urlencoded_multiple() {
         let items: &[Element] = &["hello".into(), 42.into(), false.into(), "world".into()];
-        let s = TestSer::new(CommaDelimited::from_iter(items), CommaDelimited::from("another"));
+        let s = TestSer::new(
+            CommaDelimited::from_iter(items),
+            CommaDelimited::from("another"),
+        );
         let req = generate(s).build().expect("a valid request");
         let query = req.url().query().expect("a non-empty query");
 
@@ -397,17 +409,19 @@ mod tests {
         #[serde(skip_serializing_if = "CommaDelimited::is_empty")]
         key: CommaDelimited,
         #[serde(skip_serializing_if = "Option::is_none")]
-        opt: Option<CommaDelimited>
+        opt: Option<CommaDelimited>,
     }
 
     impl TestSer {
         fn new(key: CommaDelimited, opt: impl Into<Option<CommaDelimited>>) -> Self {
-            Self { key, opt: opt.into() }
+            Self {
+                key,
+                opt: opt.into(),
+            }
         }
     }
 
     fn generate(s: impl Serialize) -> reqwest::RequestBuilder {
         reqwest::Client::new().get("http://localhost").query(&s)
     }
-
 }

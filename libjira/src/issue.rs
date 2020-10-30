@@ -2,7 +2,7 @@ pub use crate::{models::issue as models, options::issue as options};
 
 use {
     self::endpoint::*,
-    crate::{client::Jira, error::JiraError, models::empty::Empty, options::ToQuery},
+    crate::{client::Jira, error::JiraError, models::empty::Empty},
     models::{Created, Issue, MetaCreate, MetaEdit, Search},
     reqwest::RequestBuilder,
     serde::Serialize,
@@ -133,12 +133,12 @@ impl Issues {
     }
 }
 
-fn apply<'a, O>(options: Option<&'a O>, req: RequestBuilder) -> RequestBuilder
+fn apply<'a, S>(options: Option<&'a S>, req: RequestBuilder) -> RequestBuilder
 where
-    O: ToQuery<'a>,
+    S: Serialize,
 {
     match options {
-        Some(options) => options.append_request(req),
+        Some(options) => req.query(options),
         None => req,
     }
 }

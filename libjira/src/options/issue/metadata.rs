@@ -1,11 +1,20 @@
 use super::*;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize)]
 pub struct MetaCreate {
+    #[serde(rename = "projectIds")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     project_ids: Option<CommaDelimited>,
+    #[serde(rename = "projectKeys")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     project_keys: Option<CommaDelimited>,
+    #[serde(rename = "issuetypeIds")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     issuetype_ids: Option<CommaDelimited>,
+    #[serde(rename = "issuetypeNames")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     issuetype_keys: Option<CommaDelimited>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     expand: Option<CommaDelimited>,
 }
 
@@ -14,140 +23,78 @@ impl MetaCreate {
         Self::default()
     }
 
-    pub fn project_keys<'a, I>(self, project_keys: Option<I>) -> Self
+    pub fn project_keys<I, T>(&mut self, keys: I) -> &mut Self
     where
-        I: Iterator<Item = &'a str> + Clone,
+        I: IntoIterator<Item = T>,
+        T: AsRef<str>,
+    {
+        Self::append_delimited(
+            &mut self.project_keys,
+            keys.into_iter().map(|s| Element::from(s.as_ref())),
+        );
+        self
+    }
+
+    pub fn project_ids<I, T>(&mut self, ids: I) -> &mut Self
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<u64>,
+    {
+        Self::append_delimited(&mut self.project_ids, ids.into_iter().map(Into::into));
+        self
+    }
+
+    pub fn issuetype_keys<I, T>(&mut self, keys: I) -> &mut Self
+    where
+        I: IntoIterator<Item = T>,
+        T: AsRef<str>,
+    {
+        Self::append_delimited(
+            &mut self.issuetype_keys,
+            keys.into_iter().map(|s| Element::from(s.as_ref())),
+        );
+        self
+    }
+
+    pub fn issuetype_ids<I, T>(&mut self, ids: I) -> &mut Self
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<u64>,
+    {
+        Self::append_delimited(&mut self.issuetype_ids, ids.into_iter().map(Into::into));
+        self
+    }
+
+    pub fn expand<I, T>(&mut self, expand: I) -> &mut Self
+    where
+        I: IntoIterator<Item = T>,
+        T: AsRef<str>,
+    {
+        Self::append_delimited(
+            &mut self.expand,
+            expand.into_iter().map(|s| Element::from(s.as_ref())),
+        );
+        self
+    }
+
+    pub fn with<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&mut Self) -> &mut Self,
     {
         let mut this = self;
-        if let Some(value) = project_keys {
-            this.project_keys = this
-                .project_keys
-                .unwrap_or_default()
-                .with(|s| s.from_iter(value))
-                .into();
-        }
+        f(&mut this);
         this
     }
 
-    pub fn project_ids<I>(self, project_ids: Option<I>) -> Self
+    fn append_delimited<I, T>(f: &mut Option<CommaDelimited>, iter: I)
     where
-        I: Iterator<Item = u64> + Clone,
+        I: Iterator<Item = T>,
+        T: Into<Element>,
     {
-        let mut this = self;
-        if let Some(value) = project_ids {
-            this.project_ids = this
-                .project_ids
-                .unwrap_or_default()
-                .with(|s| s.from_iter(value))
-                .into();
+        match f {
+            Some(ref mut item) => item.extend(iter.map(Into::into)),
+            None => *f = Some(CommaDelimited::from_iter(iter.map(Into::into))),
         }
-        this
-    }
-
-    pub fn issuetype_keys<'a, I>(self, issuetype_keys: Option<I>) -> Self
-    where
-        I: Iterator<Item = &'a str> + Clone,
-    {
-        let mut this = self;
-        if let Some(value) = issuetype_keys {
-            this.issuetype_keys = this
-                .issuetype_keys
-                .unwrap_or_default()
-                .with(|s| s.from_iter(value))
-                .into();
-        }
-        this
-    }
-
-    pub fn issuetype_ids<I>(self, issuetype_ids: Option<I>) -> Self
-    where
-        I: Iterator<Item = u64> + Clone,
-    {
-        let mut this = self;
-        if let Some(value) = issuetype_ids {
-            this.issuetype_ids = this
-                .issuetype_ids
-                .unwrap_or_default()
-                .with(|s| s.from_iter(value))
-                .into();
-        }
-        this
-    }
-
-    pub fn expand<'a, I>(self, expand: Option<I>) -> Self
-    where
-        I: Iterator<Item = &'a str> + Clone,
-    {
-        let mut this = self;
-        if let Some(value) = expand {
-            this.expand = this
-                .expand
-                .unwrap_or_default()
-                .with(|s| s.from_iter(value))
-                .into();
-        }
-        this
-    }
-}
-
-impl<'a> ToQuery<'a> for MetaCreate {
-    type Queries = MetaCreateIter<'a>;
-
-    fn to_queries(&'a self) -> Self::Queries {
-        MetaCreateIter::new(self)
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct MetaCreateIter<'a> {
-    iter: [Option<(&'a str, OptionSerialize<'a>)>; 5],
-    idx: usize,
-}
-
-impl<'a> MetaCreateIter<'a> {
-    pub fn new(owner: &'a MetaCreate) -> Self {
-        let iter = [
-            owner
-                .project_ids
-                .as_ref()
-                .map(|v| (key::PROJECT_IDS, v.into())),
-            owner
-                .project_keys
-                .as_ref()
-                .map(|v| (key::PROJECT_KEYS, v.into())),
-            owner
-                .issuetype_ids
-                .as_ref()
-                .map(|v| (key::ISSUETYPE_IDS, v.into())),
-            owner
-                .issuetype_keys
-                .as_ref()
-                .map(|v| (key::ISSUETYPE_KEYS, v.into())),
-            owner.expand.as_ref().map(|v| (key::EXPAND, v.into())),
-        ];
-
-        Self { iter, idx: 0 }
-    }
-}
-
-impl<'a> Iterator for MetaCreateIter<'a> {
-    type Item = (&'a str, OptionSerialize<'a>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut next = None;
-
-        while let None = next {
-            if self.idx > self.iter.len() {
-                return None;
-            }
-
-            if let Some(query) = self.iter.iter_mut().nth(self.idx).and_then(|o| o.take()) {
-                next = Some(query)
-            }
-            self.idx += 1;
-        }
-
-        next
     }
 }
 
@@ -157,78 +104,54 @@ mod tests {
     use super::*;
     use pretty_assertions::{assert_eq, assert_ne};
 
-    const VALS: &'static [&'static str; 4] = &["ONE", "__$@|`", "P34", "lowercase"];
-    const IDS: &'static [u64; 4] = &[1, 00002, 345675, 4];
-
     #[test]
-    fn none() {
-        let MetaCreate {
-            project_ids,
-            project_keys,
-            issuetype_ids,
-            issuetype_keys,
-            expand,
-        } = MetaCreate::new();
+    fn empty() {
+        let get = MetaCreate::new();
+        let req = generate(&get);
 
-        assert!(project_ids.is_none());
-        assert!(project_keys.is_none());
-        assert!(issuetype_ids.is_none());
-        assert!(issuetype_keys.is_none());
-        assert!(expand.is_none());
+        assert_eq!(req.url().query(), None);
     }
 
     #[test]
     fn single() {
-        let MetaCreate {
-            project_ids,
-            project_keys,
-            issuetype_ids,
-            issuetype_keys,
-            expand,
-        } = generate(1);
+        let get = MetaCreate::new().with(|this| this.expand(Some("value")));
+        let req = generate(&get);
+        let query = req.url().query().expect("a non-empty query");
 
-        equals(project_ids, "1");
-        equals(issuetype_ids, "1");
-        equals(project_keys, "ONE");
-        equals(issuetype_keys, "ONE");
-        equals(expand, "ONE");
+        assert_eq!(query, "expand=value")
     }
 
     #[test]
     fn multiple() {
-        let MetaCreate {
-            project_ids,
-            project_keys,
-            issuetype_ids,
-            issuetype_keys,
-            expand,
-        } = generate(3);
+        let get = MetaCreate::new()
+            .with(|this| this.issuetype_ids(Some(42u64)).project_keys(Some("foo")));
+        let req = generate(&get);
+        let query = req.url().query().expect("a non-empty query");
 
-        equals(project_ids, "1,2,345675");
-        equals(issuetype_ids, "1,2,345675");
-        equals(project_keys, "ONE,__$@|`,P34");
-        equals(issuetype_keys, "ONE,__$@|`,P34");
-        equals(expand, "ONE,__$@|`,P34");
+        assert_eq!(query, "projectKeys=foo&issuetypeIds=42")
     }
 
-    fn generate(range: usize) -> MetaCreate {
-        MetaCreate::new()
-            .issuetype_ids(u_range(range))
-            .issuetype_keys(s_range(range))
-            .project_keys(s_range(range))
-            .project_ids(u_range(range))
-            .expand(s_range(range))
+    #[test]
+    fn complex() {
+        let get = MetaCreate::new().with(|this| {
+            this.project_keys(&["key1", "key2"])
+                .issuetype_ids((&[0u32, 10, 30]).iter().copied())
+                .expand(Some("value"))
+        });
+        let req = generate(&get);
+        let query = req.url().query().expect("a non-empty query");
+
+        assert_eq!(
+            query,
+            "projectKeys=key1%2Ckey2&issuetypeIds=0%2C10%2C30&expand=value"
+        )
     }
 
-    fn equals(o: Option<CommaDelimited>, val: &str) {
-        assert_eq!(o.expect("A valid comma delimited value").as_ref(), val)
-    }
-
-    fn u_range(range: usize) -> Option<impl Iterator<Item = u64> + Clone> {
-        Some(IDS).map(|v| v.iter().take(range).copied())
-    }
-
-    fn s_range(range: usize) -> Option<impl Iterator<Item = &'static str> + Clone> {
-        Some(VALS).map(|v| v.iter().take(range).copied())
+    fn generate(s: impl Serialize) -> reqwest::Request {
+        reqwest::Client::new()
+            .get("http://localhost")
+            .query(&s)
+            .build()
+            .expect("a valid request")
     }
 }

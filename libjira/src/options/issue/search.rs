@@ -1,14 +1,26 @@
 use super::*;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize)]
 pub struct Search {
+    #[serde(skip_serializing_if = "Option::is_none")]
     jql: Option<String>,
+    #[serde(rename = "startAt")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     start_at: Option<u32>,
+    #[serde(rename = "maxResults")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     max_results: Option<u32>,
+    #[serde(rename = "validateQuery")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     validate: Option<ValidateQuery>,
-    with_fields: Option<CommaDelimited>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fields: Option<CommaDelimited>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     expand: Option<CommaDelimited>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     properties: Option<CommaDelimited>,
+    #[serde(rename = "fieldsByKeys")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     fields_by_key: Option<bool>,
 }
 
@@ -17,151 +29,144 @@ impl Search {
         Self::default()
     }
 
-    pub fn jql<T>(self, jql: Option<T>) -> Self
+    pub fn jql<T>(&mut self, jql: impl Into<Option<T>>) -> &mut Self
     where
+        T: ToString,
+    {
+        self.jql = jql.into().map(|s| s.to_string());
+        self
+    }
+
+    pub fn start_at(&mut self, start_at: impl Into<Option<u32>>) -> &mut Self {
+        self.start_at = start_at.into();
+        self
+    }
+
+    pub fn max_results(&mut self, max_results: impl Into<Option<u32>>) -> &mut Self {
+        self.max_results = max_results.into().filter(|u| *u != 0);
+        self
+    }
+
+    pub fn validate(&mut self, validate: impl Into<Option<ValidateQuery>>) -> &mut Self {
+        self.validate = validate.into();
+        self
+    }
+
+    pub fn fields<I, T>(&mut self, fields: I) -> &mut Self
+    where
+        I: IntoIterator<Item = T>,
         T: AsRef<str>,
     {
-        let mut this = self;
-        this.jql = jql.map(|s| s.as_ref().into());
-        this
+        Self::append_delimited(
+            &mut self.fields,
+            fields.into_iter().map(|s| Element::from(s.as_ref())),
+        );
+        self
     }
 
-    pub fn start_at(self, start_at: Option<u32>) -> Self {
-        let mut this = self;
-        this.start_at = start_at;
-        this
-    }
-
-    pub fn max_results(self, max_results: Option<u32>) -> Self {
-        let mut this = self;
-        this.max_results = max_results;
-        this
-    }
-
-    pub fn validate(self, validate: Option<ValidateQuery>) -> Self {
-        let mut this = self;
-        this.validate = validate;
-        this
-    }
-
-    pub fn with_fields<'a, I>(self, fields: Option<I>) -> Self
+    pub fn expand<I, T>(&mut self, expand: I) -> &mut Self
     where
-        I: Iterator<Item = &'a str> + Clone,
+        I: IntoIterator<Item = T>,
+        T: AsRef<str>,
+    {
+        Self::append_delimited(
+            &mut self.expand,
+            expand.into_iter().map(|s| Element::from(s.as_ref())),
+        );
+        self
+    }
+
+    pub fn properties<I, T>(&mut self, properties: I) -> &mut Self
+    where
+        I: IntoIterator<Item = T>,
+        T: AsRef<str>,
+    {
+        Self::append_delimited(
+            &mut self.properties,
+            properties.into_iter().map(|s| Element::from(s.as_ref())),
+        );
+        self
+    }
+
+    pub fn fields_by_key(&mut self, by_key: impl Into<Option<bool>>) -> &mut Self {
+        self.fields_by_key = by_key.into().filter(|b| *b);
+        self
+    }
+
+    pub fn with<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&mut Self) -> &mut Self,
     {
         let mut this = self;
-        if let Some(value) = fields {
-            this.with_fields = this
-                .with_fields
-                .unwrap_or_default()
-                .with(|s| s.from_iter(value))
-                .into();
-        }
+        f(&mut this);
         this
     }
 
-    pub fn expand<'a, I>(self, expand: Option<I>) -> Self
+    fn append_delimited<I, T>(f: &mut Option<CommaDelimited>, iter: I)
     where
-        I: Iterator<Item = &'a str> + Clone,
+        I: Iterator<Item = T>,
+        T: Into<Element>,
     {
-        let mut this = self;
-        if let Some(value) = expand {
-            this.expand = this
-                .expand
-                .unwrap_or_default()
-                .with(|s| s.from_iter(value))
-                .into();
+        match f {
+            Some(ref mut item) => item.extend(iter.map(Into::into)),
+            None => *f = Some(CommaDelimited::from_iter(iter.map(Into::into))),
         }
-        this
-    }
-
-    pub fn properties<'a, I>(self, properties: Option<I>) -> Self
-    where
-        I: Iterator<Item = &'a str> + Clone,
-    {
-        let mut this = self;
-        if let Some(value) = properties {
-            this.properties = this
-                .properties
-                .unwrap_or_default()
-                .with(|s| s.from_iter(value))
-                .into();
-        }
-        this
-    }
-
-    pub fn fields_by_key(self, by_key: Option<bool>) -> Self {
-        let mut this = self;
-        this.fields_by_key = by_key.filter(|b| *b);
-        this
     }
 }
 
-impl<'a> ToQuery<'a> for Search {
-    type Queries = SearchIter<'a>;
+#[cfg(test)]
+#[allow(unused_imports)]
+mod tests {
+    use super::*;
+    use pretty_assertions::{assert_eq, assert_ne};
 
-    fn to_queries(&'a self) -> Self::Queries {
-        SearchIter::new(self)
+    #[test]
+    fn empty() {
+        let search = Search::new();
+        let req = generate(&search);
+
+        assert_eq!(req.url().query(), None);
     }
-}
 
-#[derive(Debug)]
-pub(crate) struct SearchIter<'a> {
-    iter: [Option<(&'a str, OptionSerialize<'a>)>; 8],
-    idx: usize,
-}
+    #[test]
+    fn single() {
+        let search = Search::new().with(|this| this.expand(Some("value")));
+        let req = generate(&search);
+        let query = req.url().query().expect("a non-empty query");
 
-impl<'a> SearchIter<'a> {
-    pub fn new(owner: &'a Search) -> Self {
-        let iter = [
-            owner.jql.as_ref().map(|v| (key::JQL, v.as_str().into())),
-            owner
-                .start_at
-                .as_ref()
-                .map(|v| (key::START_AT, (*v).into())),
-            owner
-                .max_results
-                .as_ref()
-                .map(|v| (key::MAX_RESULTS, (*v).into())),
-            owner
-                .validate
-                .as_ref()
-                .map(|v| (key::VALIDATE_QUERY, (*v).into())),
-            owner
-                .with_fields
-                .as_ref()
-                .map(|v| (key::WITH_FIELDS, v.into())),
-            owner.expand.as_ref().map(|v| (key::EXPAND, v.into())),
-            owner
-                .properties
-                .as_ref()
-                .map(|v| (key::PROPERTIES, v.into())),
-            owner
-                .fields_by_key
-                .as_ref()
-                .map(|v| (key::FIELDS_BY_KEY, (*v).into())),
-        ];
-
-        Self { iter, idx: 0 }
+        assert_eq!(query, "expand=value")
     }
-}
 
-impl<'a> Iterator for SearchIter<'a> {
-    type Item = (&'a str, OptionSerialize<'a>);
+    #[test]
+    fn multiple() {
+        let search = Search::new().with(|this| this.max_results(100u32).fields_by_key(true));
+        let req = generate(&search);
+        let query = req.url().query().expect("a non-empty query");
 
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut next = None;
+        assert_eq!(query, "maxResults=100&fieldsByKeys=true")
+    }
 
-        while let None = next {
-            if self.idx > self.iter.len() {
-                return None;
-            }
+    #[test]
+    fn complex() {
+        let search = Search::new().with(|this| {
+            this.start_at(80)
+                .validate(ValidateQuery::Strict)
+                .properties(&["foo", "bar"])
+        });
+        let req = generate(&search);
+        let query = req.url().query().expect("a non-empty query");
 
-            if let Some(query) = self.iter.iter_mut().nth(self.idx).and_then(|o| o.take()) {
-                next = Some(query)
-            }
-            self.idx += 1;
-        }
+        assert_eq!(
+            query,
+            "startAt=80&validateQuery=strict&properties=foo%2Cbar"
+        )
+    }
 
-        next
+    fn generate(s: impl Serialize) -> reqwest::Request {
+        reqwest::Client::new()
+            .get("http://localhost")
+            .query(&s)
+            .build()
+            .expect("a valid request")
     }
 }

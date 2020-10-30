@@ -1,11 +1,18 @@
 use super::*;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize)]
 pub struct Get {
-    with_fields: Option<CommaDelimited>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fields: Option<CommaDelimited>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     expand: Option<CommaDelimited>,
+    #[serde(rename = "fieldsByKeys")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     fields_by_key: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     properties: Option<CommaDelimited>,
+    #[serde(rename = "updateHistory")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     update_history: Option<bool>,
 }
 
@@ -14,122 +21,127 @@ impl Get {
         Self::default()
     }
 
-    pub fn with_fields<'a, I>(self, fields: Option<I>) -> Self
+    pub fn fields<I, T>(&mut self, fields: I) -> &mut Self
     where
-        I: Iterator<Item = &'a str> + Clone,
+        I: IntoIterator<Item = T>,
+        T: AsRef<str>,
+    {
+        Self::append_delimited(
+            &mut self.fields,
+            fields.into_iter().map(|s| Element::from(s.as_ref())),
+        );
+        self
+    }
+
+    pub fn expand<I, T>(&mut self, expand: I) -> &mut Self
+    where
+        I: IntoIterator<Item = T>,
+        T: AsRef<str>,
+    {
+        Self::append_delimited(
+            &mut self.expand,
+            expand.into_iter().map(|s| Element::from(s.as_ref())),
+        );
+        self
+    }
+
+    pub fn fields_by_key(&mut self, by_key: impl Into<Option<bool>>) -> &mut Self {
+        self.fields_by_key = by_key.into().filter(|b| *b);
+        self
+    }
+
+    pub fn properties<T, I>(&mut self, properties: I) -> &mut Self
+    where
+        I: IntoIterator<Item = T>,
+        T: AsRef<str>,
+    {
+        Self::append_delimited(
+            &mut self.properties,
+            properties.into_iter().map(|s| Element::from(s.as_ref())),
+        );
+        self
+    }
+
+    pub fn update_history(&mut self, update: impl Into<Option<bool>>) -> &mut Self {
+        self.update_history = update.into().filter(|u| *u);
+        self
+    }
+
+    pub fn with<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&mut Self) -> &mut Self,
     {
         let mut this = self;
-        if let Some(value) = fields {
-            this.with_fields = this
-                .with_fields
-                .unwrap_or_default()
-                .with(|s| s.from_iter(value))
-                .into();
-        }
+        f(&mut this);
         this
     }
 
-    pub fn expand<'a, I>(self, expand: Option<I>) -> Self
+    fn append_delimited<I, T>(f: &mut Option<CommaDelimited>, iter: I)
     where
-        I: Iterator<Item = &'a str> + Clone,
+        I: Iterator<Item = T>,
+        T: Into<Element>,
     {
-        let mut this = self;
-        if let Some(value) = expand {
-            this.expand = this
-                .expand
-                .unwrap_or_default()
-                .with(|s| s.from_iter(value))
-                .into();
+        match f {
+            Some(ref mut item) => item.extend(iter.map(Into::into)),
+            None => *f = Some(CommaDelimited::from_iter(iter.map(Into::into))),
         }
-        this
-    }
-
-    pub fn properties<'a, I>(self, properties: Option<I>) -> Self
-    where
-        I: Iterator<Item = &'a str> + Clone,
-    {
-        let mut this = self;
-        if let Some(value) = properties {
-            this.properties = this
-                .properties
-                .unwrap_or_default()
-                .with(|s| s.from_iter(value))
-                .into();
-        }
-        this
-    }
-
-    pub fn fields_by_key(self, by_key: Option<bool>) -> Self {
-        let mut this = self;
-        this.fields_by_key = by_key.filter(|b| *b);
-        this
-    }
-
-    pub fn update_history(self, update: Option<bool>) -> Self {
-        let mut this = self;
-        this.update_history = update.filter(|b| *b);
-        this
     }
 }
 
-impl<'a> ToQuery<'a> for Get {
-    type Queries = GetIter<'a>;
+#[cfg(test)]
+#[allow(unused_imports)]
+mod tests {
+    use super::*;
+    use pretty_assertions::{assert_eq, assert_ne};
 
-    fn to_queries(&'a self) -> Self::Queries {
-        GetIter::new(self)
+    #[test]
+    fn empty() {
+        let get = Get::new();
+        let req = generate(&get);
+
+        assert_eq!(req.url().query(), None);
+    }
+
+    #[test]
+    fn single() {
+        let get = Get::new().with(|this| this.fields(Some("value")));
+        let req = generate(&get);
+        let query = req.url().query().expect("a non-empty query");
+
+        assert_eq!(query, "fields=value")
+    }
+
+    #[test]
+    fn multiple() {
+        let get = Get::new().with(|this| this.expand(Some("value")).update_history(true));
+        let req = generate(&get);
+        let query = req.url().query().expect("a non-empty query");
+
+        assert_eq!(query, "expand=value&updateHistory=true")
+    }
+
+    #[test]
+    fn complex() {
+        let get = Get::new().with(|this| {
+            this.properties(&["foo", "bar", "baz"])
+                .fields_by_key(true)
+                .fields(Some("field"))
+                .update_history(false)
+        });
+        let req = generate(&get);
+        let query = req.url().query().expect("a non-empty query");
+
+        assert_eq!(
+            query,
+            "fields=field&fieldsByKeys=true&properties=foo%2Cbar%2Cbaz"
+        )
+    }
+
+    fn generate(s: impl Serialize) -> reqwest::Request {
+        reqwest::Client::new()
+            .get("http://localhost")
+            .query(&s)
+            .build()
+            .expect("a valid request")
     }
 }
-
-#[derive(Debug)]
-pub(crate) struct GetIter<'a> {
-    iter: [Option<(&'a str, OptionSerialize<'a>)>; 5],
-    idx: usize,
-}
-
-impl<'a> GetIter<'a> {
-    pub fn new(owner: &'a Get) -> Self {
-        let iter = [
-            owner
-                .with_fields
-                .as_ref()
-                .map(|v| (key::WITH_FIELDS, v.into())),
-            owner.expand.as_ref().map(|v| (key::EXPAND, v.into())),
-            owner
-                .fields_by_key
-                .as_ref()
-                .map(|v| (key::FIELDS_BY_KEY, (*v).into())),
-            owner
-                .properties
-                .as_ref()
-                .map(|v| (key::PROPERTIES, v.into())),
-            owner
-                .update_history
-                .as_ref()
-                .map(|v| (key::UPDATE_HISTORY, (*v).into())),
-        ];
-
-        Self { iter, idx: 0 }
-    }
-}
-
-impl<'a> Iterator for GetIter<'a> {
-    type Item = (&'a str, OptionSerialize<'a>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut next = None;
-
-        while let None = next {
-            if self.idx > self.iter.len() {
-                return None;
-            }
-
-            if let Some(query) = self.iter.iter_mut().nth(self.idx).and_then(|o| o.take()) {
-                next = Some(query)
-            }
-            self.idx += 1;
-        }
-
-        next
-    }
-}
-
