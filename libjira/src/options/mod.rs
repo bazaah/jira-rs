@@ -4,6 +4,7 @@ use {
     serde::{Serialize, Serializer},
 };
 
+pub mod cdelim;
 pub mod issue;
 
 mod key {
