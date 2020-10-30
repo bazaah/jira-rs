@@ -92,6 +92,8 @@ impl Jira {
         let request = request.header(header::ACCEPT, "application/json");
         let request = self.auth.authorize(request)?;
 
+        dbg!(&request);
+
         Ok(request.into())
     }
 }

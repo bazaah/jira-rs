@@ -1,7 +1,7 @@
 use {
     cdelim::{CommaDelimited, Element},
     serde::{Serialize, Serializer},
-    std::iter::{FromIterator, IntoIterator},
+    std::iter::IntoIterator,
 };
 
 mod cdelim;

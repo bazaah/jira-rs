@@ -345,6 +345,7 @@ impl From<i64> for Number {
 }
 
 #[cfg(test)]
+#[allow(unused_imports)]
 mod tests {
     use super::*;
     use pretty_assertions::{assert_eq, assert_ne};

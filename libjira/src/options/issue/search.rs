@@ -109,7 +109,12 @@ impl Search {
     {
         match f {
             Some(ref mut item) => item.extend(iter.map(Into::into)),
-            None => *f = Some(CommaDelimited::from_iter(iter.map(Into::into))),
+            None => {
+                *f = iter.map(Into::into).fold(None, |mut o, elem| {
+                    o.get_or_insert_with(|| CommaDelimited::new()).append(elem);
+                    o
+                })
+            }
         }
     }
 }
@@ -160,6 +165,23 @@ mod tests {
             query,
             "startAt=80&validateQuery=strict&properties=foo%2Cbar"
         )
+    }
+
+    /// Added after a regression whereby "empty" iterators
+    /// could add an empty struct as a Some() variant causing
+    /// invalid query serialization
+    #[test]
+    fn empty_values() {
+        const EMPTY: Option<String> = None;
+
+        let req = generate(&*Search::new().expand(EMPTY));
+        assert_eq!(req.url().query(), None);
+
+        let req = generate(&*Search::new().fields(EMPTY));
+        assert_eq!(req.url().query(), None);
+
+        let req = generate(&*Search::new().properties(EMPTY));
+        assert_eq!(req.url().query(), None);
     }
 
     fn generate(s: impl Serialize) -> reqwest::Request {

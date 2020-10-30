@@ -93,7 +93,12 @@ impl MetaCreate {
     {
         match f {
             Some(ref mut item) => item.extend(iter.map(Into::into)),
-            None => *f = Some(CommaDelimited::from_iter(iter.map(Into::into))),
+            None => {
+                *f = iter.map(Into::into).fold(None, |mut o, elem| {
+                    o.get_or_insert_with(|| CommaDelimited::new()).append(elem);
+                    o
+                })
+            }
         }
     }
 }
@@ -145,6 +150,30 @@ mod tests {
             query,
             "projectKeys=key1%2Ckey2&issuetypeIds=0%2C10%2C30&expand=value"
         )
+    }
+
+    /// Added after a regression whereby "empty" iterators
+    /// could add an empty struct as a Some() variant causing
+    /// invalid query serialization
+    #[test]
+    fn empty_values() {
+        const EMPTY_S: Option<String> = None;
+        const EMPTY_N: Option<u64> = None;
+
+        let req = generate(&*MetaCreate::new().project_ids(EMPTY_N));
+        assert_eq!(req.url().query(), None);
+
+        let req = generate(&*MetaCreate::new().project_keys(EMPTY_S));
+        assert_eq!(req.url().query(), None);
+
+        let req = generate(&*MetaCreate::new().issuetype_ids(EMPTY_N));
+        assert_eq!(req.url().query(), None);
+
+        let req = generate(&*MetaCreate::new().issuetype_keys(EMPTY_S));
+        assert_eq!(req.url().query(), None);
+
+        let req = generate(&*MetaCreate::new().expand(EMPTY_S));
+        assert_eq!(req.url().query(), None);
     }
 
     fn generate(s: impl Serialize) -> reqwest::Request {
