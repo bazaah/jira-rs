@@ -7,6 +7,14 @@ use super::*;
 
 pub use {create::*, get::*, metadata::*, search::*};
 
+/// Validation level for JQL statements passed
+/// to the Jira instance.
+///
+/// - Strict: the default level, any errors in the JQL statement
+///   automatically fail the associated request with a 400.
+/// - Warn: Any errors are returned as warnings, and the request
+///   may "succeed" -- typically by returning nothing
+/// - None: No validation is done
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ValidateQuery {
     Strict,

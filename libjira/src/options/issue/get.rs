@@ -2,14 +2,14 @@ use super::*;
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct Get {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "none_or_empty")]
     fields: Option<CommaDelimited>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "none_or_empty")]
     expand: Option<CommaDelimited>,
     #[serde(rename = "fieldsByKeys")]
     #[serde(skip_serializing_if = "Option::is_none")]
     fields_by_key: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "none_or_empty")]
     properties: Option<CommaDelimited>,
     #[serde(rename = "updateHistory")]
     #[serde(skip_serializing_if = "Option::is_none")]

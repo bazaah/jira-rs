@@ -8,15 +8,19 @@ pub struct Create {
 }
 
 impl Create {
+    /// Instantiate a new, empty options set
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Controls whether the new issue (and parent project) will show in the the respective
+    /// recently viewed lists of the user associated with the credentials used.
     pub fn update_history(&mut self, update: impl Into<Option<bool>>) -> &mut Self {
         self.update_history = update.into().filter(|u| *u);
         self
     }
 
+    /// Helper function for emulating a builder pattern
     pub fn with<F>(self, f: F) -> Self
     where
         F: FnOnce(&mut Self) -> &mut Self,

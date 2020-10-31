@@ -5,18 +5,18 @@ use super::*;
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct MetaCreate {
     #[serde(rename = "projectIds")]
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "none_or_empty")]
     project_ids: Option<CommaDelimited>,
     #[serde(rename = "projectKeys")]
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "none_or_empty")]
     project_keys: Option<CommaDelimited>,
     #[serde(rename = "issuetypeIds")]
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "none_or_empty")]
     issuetype_ids: Option<CommaDelimited>,
     #[serde(rename = "issuetypeNames")]
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "none_or_empty")]
     issuetype_keys: Option<CommaDelimited>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "none_or_empty")]
     expand: Option<CommaDelimited>,
 }
 

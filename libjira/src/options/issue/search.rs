@@ -1,5 +1,7 @@
 use super::*;
 
+/// Options for searching Jira issues using [JQL](https://support.atlassian.com/jira-software-cloud/docs/use-advanced-search-with-jira-query-language-jql)
+/// queries.
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct Search {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -13,11 +15,11 @@ pub struct Search {
     #[serde(rename = "validateQuery")]
     #[serde(skip_serializing_if = "Option::is_none")]
     validate: Option<ValidateQuery>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "none_or_empty")]
     fields: Option<CommaDelimited>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "none_or_empty")]
     expand: Option<CommaDelimited>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "none_or_empty")]
     properties: Option<CommaDelimited>,
     #[serde(rename = "fieldsByKeys")]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -25,10 +27,13 @@ pub struct Search {
 }
 
 impl Search {
+    /// Instantiate a new, empty options set
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// The JQL query to send to the endpoint. Note that not setting this
+    /// field will **automatically fail** the request.
     pub fn jql<T>(&mut self, jql: impl Into<Option<T>>) -> &mut Self
     where
         T: ToString,
@@ -37,21 +42,38 @@ impl Search {
         self
     }
 
+    /// Only send results starting from the given number.
+    ///
+    /// For example, assuming a query normally returns `0..=N` matching issues,
+    /// setting this to `S` will instead return `S..=N` results.
     pub fn start_at(&mut self, start_at: impl Into<Option<u32>>) -> &mut Self {
         self.start_at = start_at.into();
         self
     }
 
+    /// Sets the limit on number of results returned in a single quest for a given
+    /// query. By default Jira instances set this to 50, but this is configurable by
+    /// site administrators. Combining this setting and `start_at` allows you to paginate
+    /// results.
     pub fn max_results(&mut self, max_results: impl Into<Option<u32>>) -> &mut Self {
         self.max_results = max_results.into().filter(|u| *u != 0);
         self
     }
 
+    /// Set the validation level for this query's JQL. See `ValidateQuery` for more
+    /// information on available levels.
     pub fn validate(&mut self, validate: impl Into<Option<ValidateQuery>>) -> &mut Self {
         self.validate = validate.into();
         self
     }
 
+    /// Narrows the returned fields of issues returned by the given
+    /// JQL query. By default, Jira will return _all_ fields accessible
+    /// by the request's permissions, which can number in the hundreds,
+    /// significantly bloating responses.
+    ///
+    /// If you know what you are looking for, you can greatly improve
+    /// roundtrip performance by leveraging this setting.
     pub fn fields<I, T>(&mut self, fields: I) -> &mut Self
     where
         I: IntoIterator<Item = T>,
@@ -64,6 +86,12 @@ impl Search {
         self
     }
 
+    /// The Jira expandable for this endpoint. This one can take serveral
+    /// defined expands, and may additionally take others depending on
+    /// what search plugins the Jira instance has.
+    ///
+    /// For more information on the defined expands see the constants
+    /// in `self::expands`.
     pub fn expand<I, T>(&mut self, expand: I) -> &mut Self
     where
         I: IntoIterator<Item = T>,
@@ -88,11 +116,13 @@ impl Search {
         self
     }
 
+    /// Returned fields will be referenced by their key instead of their id.
     pub fn fields_by_key(&mut self, by_key: impl Into<Option<bool>>) -> &mut Self {
         self.fields_by_key = by_key.into().filter(|b| *b);
         self
     }
 
+    /// Helper function for emulating a builder pattern
     pub fn with<F>(self, f: F) -> Self
     where
         F: FnOnce(&mut Self) -> &mut Self,
@@ -117,6 +147,33 @@ impl Search {
             }
         }
     }
+}
+
+pub mod expands {
+    /// Returns field values rendered in HTML format.
+    pub const RENDERED_FIELDS: &str = "renderedFields";
+
+    /// Returns the display name of each field.
+    pub const NAMES: &str = "names";
+
+    /// Returns the schema describing a field type.
+    pub const SCHEMA: &str = "schema";
+
+    /// Returns all possible transitions for the issue.
+    pub const TRANSITIONS: &str = "transitions";
+
+    /// Returns all possible operations for the issue.
+    pub const OPERATIONS: &str = "operations";
+
+    /// Returns information about how each field can be edited.
+    pub const EDITMETA: &str = "editmeta";
+
+    /// Returns a list of recent updates to an issue, sorted by date, starting from the most recent.
+    pub const CHANGELOG: &str = "changelog";
+
+    /// Instead of `fields`, returns `versionedRepresentations`, a JSON array containing each
+    /// version of a field's value, with the highest numbered item representing the most recent version.
+    pub const VERSIONED_REPR: &str = "versionedRepresentations";
 }
 
 #[cfg(test)]

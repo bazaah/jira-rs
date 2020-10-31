@@ -22,3 +22,10 @@ mod key {
     pub(super) const ISSUETYPE_IDS: &str = "issuetypeIds";
     pub(super) const ISSUETYPE_KEYS: &str = "issuetypeNames";
 }
+
+fn none_or_empty(o: &Option<CommaDelimited>) -> bool {
+    match o {
+        Some(c) => c.is_empty(),
+        None => true,
+    }
+}
