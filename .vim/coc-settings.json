@@ -9,6 +9,7 @@
     "editmeta",
     "issuetype",
     "issuetypes",
+    "ouroboros",
     "reqwest",
     "serializable",
     "structopt",
