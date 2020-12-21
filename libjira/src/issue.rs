@@ -3,7 +3,7 @@ pub use crate::{models::issue as models, options::issue as options};
 use {
     self::endpoint::*,
     crate::{client::Jira, error::JiraError, models::empty::Empty},
-    models::{Created, Issue, MetaCreate, MetaEdit, Search},
+    models::{CreatedHandle, IssueHandle, MetaCreateHandle, MetaEditHandle, SearchHandle},
     reqwest::RequestBuilder,
     serde::Serialize,
 };
@@ -29,7 +29,11 @@ impl Issues {
     /// By default, this will return all available fields
     /// & field data for the issue, which can be very expensive.
     /// You may use the passed options to constrain the returned data
-    pub async fn get<K>(&self, key: K, options: Option<&options::Get>) -> Result<Issue, JiraError>
+    pub async fn get<K>(
+        &self,
+        key: K,
+        options: Option<&options::Get>,
+    ) -> Result<IssueHandle, JiraError>
     where
         K: AsRef<str>,
     {
@@ -48,7 +52,10 @@ impl Issues {
     ///
     /// See the following for a primer on JIRA's JQL syntax:
     /// - [What is JQL](https://support.atlassian.com/jira-software-cloud/docs/what-is-advanced-searching-in-jira-cloud)
-    pub async fn search(&self, options: Option<&options::Search>) -> Result<Search, JiraError> {
+    pub async fn search(
+        &self,
+        options: Option<&options::Search>,
+    ) -> Result<SearchHandle, JiraError> {
         let handler = |req| Ok(apply(options, req));
 
         self.client.get(&[SEARCH], handler)?.retrieve().await
@@ -76,7 +83,7 @@ impl Issues {
         &self,
         issue: &T,
         options: Option<&options::Create>,
-    ) -> Result<Created, JiraError>
+    ) -> Result<CreatedHandle, JiraError>
     where
         T: Serialize,
     {
@@ -112,7 +119,7 @@ impl Issues {
     pub async fn meta_create(
         &self,
         options: Option<&options::MetaCreate>,
-    ) -> Result<MetaCreate, JiraError> {
+    ) -> Result<MetaCreateHandle, JiraError> {
         let handler = |req| Ok(apply(options, req));
 
         self.client
@@ -122,7 +129,7 @@ impl Issues {
     }
 
     /// Retrieve metadata about a specific issue
-    pub async fn meta_edit<K>(&self, key: K) -> Result<MetaEdit, JiraError>
+    pub async fn meta_edit<K>(&self, key: K) -> Result<MetaEditHandle, JiraError>
     where
         K: AsRef<str>,
     {
