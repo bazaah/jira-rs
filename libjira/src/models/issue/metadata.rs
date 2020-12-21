@@ -10,40 +10,39 @@ use {
 /// of a call to JIRA's issue creation metadata API endpoint.
 #[derive(Debug, Deserialize)]
 #[serde(try_from = "Box<RawJson>")]
-pub struct MetaCreate {
+pub struct MetaCreateHandle {
     // This handle must never be exposed in the public API
-    inner: handle::MetaCreateHandle,
+    inner: handle::MetaCreateInner,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MetaCreateRef<'a> {
+pub struct MetaCreate<'a> {
     pub expand: Option<&'a str>,
     #[serde(borrow)]
     pub projects: Vec<ProjectMeta<'a>>,
 }
 
-impl MetaCreate {
+impl MetaCreateHandle {
     /// Try instantiate a new handle with the given backing JSON
     pub fn try_new(store: Box<RawJson>) -> Result<Self, JsonError> {
-        let inner =
-            handle::MetaCreateHandle::try_new_or_drop(store, |json| json::from_str(json.get()))?;
+        let inner = handle::MetaCreateInner::try_new(store, |raw| json::from_str(raw.get()))?;
 
         Ok(Self { inner })
     }
 
     /// Access this handle's data
-    pub fn data(&self) -> &MetaCreateRef {
-        self.inner.suffix()
+    pub fn data(&self) -> &MetaCreate {
+        self.inner.borrow_handle()
     }
 
     /// Consume the handle returning the backing
     /// storage
     pub fn into_inner(self) -> Box<RawJson> {
-        self.inner.into_head()
+        self.inner.into_heads().store
     }
 }
 
-impl TryFrom<Box<RawJson>> for MetaCreate {
+impl TryFrom<Box<RawJson>> for MetaCreateHandle {
     type Error = JsonError;
 
     fn try_from(value: Box<RawJson>) -> Result<Self, Self::Error> {
@@ -52,7 +51,7 @@ impl TryFrom<Box<RawJson>> for MetaCreate {
 }
 
 // Delegate the serializer to the internal handle
-impl Serialize for MetaCreate {
+impl Serialize for MetaCreateHandle {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -63,39 +62,38 @@ impl Serialize for MetaCreate {
 
 #[derive(Debug, Deserialize)]
 #[serde(try_from = "Box<RawJson>")]
-pub struct MetaEdit {
+pub struct MetaEditHandle {
     // This handle must never be exposed in the public API
-    inner: handle::MetaEditHandle,
+    inner: handle::MetaEditInner,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct MetaEditRef<'a> {
+pub struct MetaEdit<'a> {
     #[serde(borrow)]
     pub fields: HashMap<&'a str, IssueFieldsMeta<'a>>,
 }
 
-impl MetaEdit {
+impl MetaEditHandle {
     /// Try instantiate a new handle with the given backing JSON
     pub fn try_new(store: Box<RawJson>) -> Result<Self, JsonError> {
-        let inner =
-            handle::MetaEditHandle::try_new_or_drop(store, |json| json::from_str(json.get()))?;
+        let inner = handle::MetaEditInner::try_new(store, |raw| json::from_str(raw.get()))?;
 
         Ok(Self { inner })
     }
 
     /// Access this handle's data
-    pub fn data(&self) -> &MetaEditRef {
-        self.inner.suffix()
+    pub fn data(&self) -> &MetaEdit {
+        self.inner.borrow_handle()
     }
 
     /// Consume the handle returning the backing
     /// storage
     pub fn into_inner(self) -> Box<RawJson> {
-        self.inner.into_head()
+        self.inner.into_heads().store
     }
 }
 
-impl TryFrom<Box<RawJson>> for MetaEdit {
+impl TryFrom<Box<RawJson>> for MetaEditHandle {
     type Error = JsonError;
 
     fn try_from(value: Box<RawJson>) -> Result<Self, Self::Error> {
@@ -104,7 +102,7 @@ impl TryFrom<Box<RawJson>> for MetaEdit {
 }
 
 // Delegate the serializer to the internal handle
-impl Serialize for MetaEdit {
+impl Serialize for MetaEditHandle {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -175,20 +173,24 @@ pub enum Operations {
     Remove,
 }
 
-rental! {
-    mod handle {
-        use super::*;
+mod handle {
+    use super::*;
+    use ouroboros::self_referencing as ouroboros;
 
-        #[rental(debug, covariant)]
-        pub(super) struct MetaCreateHandle {
-            store: Box<RawJson>,
-            handle: MetaCreateRef<'store>,
-        }
+    #[ouroboros(pub_extras)]
+    #[derive(Debug)]
+    pub(super) struct MetaCreateInner {
+        store: Box<RawJson>,
+        #[borrows(store)]
+        pub(super) handle: MetaCreate<'this>,
+    }
 
-        #[rental(debug, covariant)]
-        pub(super) struct MetaEditHandle {
-            store: Box<RawJson>,
-            handle: MetaEditRef<'store>
-        }
+    #[ouroboros(pub_extras)]
+    #[derive(Debug)]
+    pub(super) struct MetaEditInner {
+        store: Box<RawJson>,
+        #[borrows(store)]
+        pub(super) handle: MetaEdit<'this>,
     }
 }
+

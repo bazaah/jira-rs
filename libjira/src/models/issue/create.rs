@@ -7,33 +7,32 @@ use {
 
 #[derive(Debug, Deserialize)]
 #[serde(try_from = "Box<RawJson>")]
-pub struct Created {
+pub struct CreatedHandle {
     // This handle must never be exposed in the public API
-    inner: handle::CreatedHandle,
+    inner: handle::CreatedInner,
 }
 
-impl Created {
+impl CreatedHandle {
     /// Try instantiate a new handle with the given backing JSON
     pub fn try_new(store: Box<RawJson>) -> Result<Self, JsonError> {
-        let inner =
-            handle::CreatedHandle::try_new_or_drop(store, |json| json::from_str(json.get()))?;
+        let inner = handle::CreatedInner::try_new(store, |raw| json::from_str(raw.get()))?;
 
         Ok(Self { inner })
     }
 
     /// Access this handle's data
-    pub fn data(&self) -> &CreatedRef {
-        self.inner.suffix()
+    pub fn data(&self) -> &Created {
+        self.inner.borrow_handle()
     }
 
     /// Consume the handle returning the backing
     /// storage
     pub fn into_inner(self) -> Box<RawJson> {
-        self.inner.into_head()
+        self.inner.into_heads().store
     }
 }
 
-impl TryFrom<Box<RawJson>> for Created {
+impl TryFrom<Box<RawJson>> for CreatedHandle {
     type Error = JsonError;
 
     fn try_from(value: Box<RawJson>) -> Result<Self, Self::Error> {
@@ -42,7 +41,7 @@ impl TryFrom<Box<RawJson>> for Created {
 }
 
 // Delegate the serializer to the internal handle
-impl Serialize for Created {
+impl Serialize for CreatedHandle {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -52,7 +51,7 @@ impl Serialize for Created {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CreatedRef<'a> {
+pub struct Created<'a> {
     #[serde(with = "common::id")]
     id: u64,
     key: &'a str,
@@ -63,14 +62,16 @@ pub struct CreatedRef<'a> {
     transition: Option<NestedResponse<'a>>,
 }
 
-rental! {
-    mod handle {
-        use super::*;
+mod handle {
+    use super::*;
+    use ouroboros::self_referencing as ouroboros;
 
-        #[rental(debug, covariant)]
-        pub(super) struct CreatedHandle {
-            store: Box<RawJson>,
-            handle: CreatedRef<'store>
-        }
+    #[ouroboros(pub_extras)]
+    #[derive(Debug)]
+    pub(super) struct CreatedInner {
+        store: Box<RawJson>,
+        #[borrows(store)]
+        pub(super) handle: Created<'this>,
     }
 }
+

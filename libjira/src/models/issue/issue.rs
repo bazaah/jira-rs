@@ -1,33 +1,79 @@
 use {
     super::*,
     json::{value::RawValue as RawJson, Error as JsonError},
-    serde::{Deserialize, Serialize},
+    serde::Serializer,
     serde_json as json,
     std::collections::HashMap,
 };
 
+#[derive(Debug, Deserialize)]
+#[serde(try_from = "Box<RawJson>")]
+pub struct IssueHandle {
+    // This handle must never be exposed in the public API
+    inner: handle::IssueInner,
+}
+
+impl IssueHandle {
+    /// Try instantiate a new handle with the given backing JSON
+    pub fn try_new(store: Box<RawJson>) -> Result<Self, JsonError> {
+        let inner = handle::IssueInner::try_new(store, |raw| json::from_str(raw.get()))?;
+
+        Ok(Self { inner })
+    }
+
+    /// Access this handle's data
+    pub fn data(&self) -> &Issue {
+        self.inner.borrow_handle()
+    }
+
+    /// Consume the handle returning the backing
+    /// storage
+    pub fn into_inner(self) -> Box<RawJson> {
+        self.inner.into_heads().store
+    }
+}
+
+impl TryFrom<Box<RawJson>> for IssueHandle {
+    type Error = JsonError;
+
+    fn try_from(value: Box<RawJson>) -> Result<Self, Self::Error> {
+        Self::try_new(value)
+    }
+}
+
+// Delegate the serializer to the internal handle
+impl Serialize for IssueHandle {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.data().serialize(serializer)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Issue {
+pub struct Issue<'a> {
     #[serde(rename = "self")]
-    pub self_link: String,
-    pub id: String,
-    pub key: String,
-    pub expand: String,
-    pub fields: HashMap<String, Box<RawJson>>,
+    pub self_link: &'a str,
+    pub id: &'a str,
+    pub key: &'a str,
+    pub expand: &'a str,
+    pub fields: HashMap<&'a str, &'a RawJson>,
 
     // Capture any extra fields returned (if any)
     #[serde(flatten)]
-    pub extra: HashMap<String, Box<RawJson>>,
+    pub extra: HashMap<&'a str, &'a RawJson>,
 }
 
-impl Issue {
+impl<'a> Issue<'a> {
     /// Attempt to deserialize an arbitrary value with the given key from the `fields` of this Issue.
     ///
     /// Note the bound `T: Deserialize<'de>` allows for zero copy deserialization,
     /// with the lifetime tied to this `Issue`
-    pub fn field<'de, 'a: 'de, T>(&'a self, key: &str) -> Option<Result<T, JsonError>>
+    pub fn field<'de, T>(&self, key: &str) -> Option<Result<T, JsonError>>
     where
         T: Deserialize<'de>,
+        'a: 'de,
     {
         self.fields.get(key).map(|raw| json::from_str(raw.get()))
     }
@@ -36,18 +82,19 @@ impl Issue {
     ///
     /// Note the bound `T: Deserialize<'de>` allows for zero copy deserialization,
     /// with the lifetime tied to this `Issue`
-    pub fn extra<'de, 'a: 'de, T>(&'a self, key: &str) -> Option<Result<T, JsonError>>
+    pub fn extra<'de, T>(&self, key: &str) -> Option<Result<T, JsonError>>
     where
         T: Deserialize<'de>,
+        'a: 'de,
     {
         self.extra.get(key).map(|raw| json::from_str(raw.get()))
     }
 
-    fn string_field<'a>(&'a self, key: &str) -> Option<Result<&str, JsonError>> {
+    fn string_field(&self, key: &str) -> Option<Result<&str, JsonError>> {
         self.field::<&str>(key)
     }
 
-    fn user_field<'a>(&'a self, key: &str) -> Option<Result<User, JsonError>> {
+    fn user_field(&self, key: &str) -> Option<Result<User, JsonError>> {
         self.field::<User>(key)
     }
 
@@ -148,3 +195,15 @@ impl Issue {
     }
 }
 
+mod handle {
+    use super::*;
+    use ouroboros::self_referencing as ouroboros;
+
+    #[ouroboros(pub_extras)]
+    #[derive(Debug)]
+    pub(super) struct IssueInner {
+        store: Box<RawJson>,
+        #[borrows(store)]
+        pub(super) handle: Issue<'this>,
+    }
+}

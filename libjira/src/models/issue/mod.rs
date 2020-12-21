@@ -6,7 +6,6 @@ pub mod search;
 
 pub use {common::*, create::*, issue::*, metadata::*, search::*};
 use {
-    rental::rental,
     serde::{Deserialize, Serialize},
     std::convert::TryFrom,
 };

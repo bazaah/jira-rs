@@ -119,9 +119,9 @@ pub struct IssueLink<'a> {
     #[serde(rename = "self")]
     pub self_link: &'a str,
     #[serde(rename = "outwardIssue")]
-    pub outward_issue: Option<Issue>,
+    pub outward_issue: Option<Issue<'a>>,
     #[serde(rename = "inwardIssue")]
-    pub inward_issue: Option<Issue>,
+    pub inward_issue: Option<Issue<'a>>,
     #[serde(rename = "type")]
     pub link_type: LinkType<'a>,
 }
