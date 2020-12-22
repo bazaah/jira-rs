@@ -111,7 +111,7 @@ impl<'a> Issue<'a> {
         let key = ptr.next()?;
 
         let map = match key {
-            "fields" => self.fields.get(ptr.next()?),
+            Self::FIELDS => self.fields.get(ptr.next()?),
             _ => self.extra.get(key),
         };
 
