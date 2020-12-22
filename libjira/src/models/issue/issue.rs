@@ -1,3 +1,5 @@
+use jsonp::{Pointer, Segment};
+
 use {
     super::*,
     json::{value::RawValue as RawJson, Error as JsonError},
@@ -66,36 +68,85 @@ pub struct Issue<'a> {
 }
 
 impl<'a> Issue<'a> {
-    /// Attempt to deserialize an arbitrary value with the given key from the `fields` of this Issue.
+    const FIELDS: &'static str = "fields";
+
+    /// Attempt to deserialize an arbitrary value from the `fields` with the given dot `.`
+    /// delimited json pointer.
     ///
-    /// Note the bound `T: Deserialize<'de>` allows for zero copy deserialization,
-    /// with the lifetime tied to this `Issue`
-    pub fn field<'de, T>(&self, key: &str) -> Option<Result<T, JsonError>>
+    /// Examples
+    ///
+    /// // Access the first inward issue's id
+    /// issue.field("issuelinks.0.inwardIssue.id")
+    ///
+    /// // Access a custom field
+    /// issue.field("customfield_10000")
+    pub fn field<'de, T>(&self, dotted: &str) -> Option<Result<T, JsonError>>
     where
         T: Deserialize<'de>,
         'a: 'de,
     {
-        self.fields.get(key).map(|raw| json::from_str(raw.get()))
+        self.field_with(dotted.split("."))
     }
 
-    /// Attempt to deserialize an arbitrary value with the given key from the `extra` fields of this Issue.
+    /// Attempt to deserialize an arbitrary value from the `fields` with the given pointer
+    /// segments.
+    pub fn field_with<'de, 'i, T, I>(&self, ptr: I) -> Option<Result<T, JsonError>>
+    where
+        I: Iterator<Item = &'i str>,
+        T: Deserialize<'de>,
+        'a: 'de,
+    {
+        let ptr = Some(Self::FIELDS).into_iter().chain(ptr);
+
+        self.access_with(ptr)
+    }
+
+    /// Attempt to access and deserialize an arbitrary value with the given dot `.`
+    /// delimited pointer.
     ///
-    /// Note the bound `T: Deserialize<'de>` allows for zero copy deserialization,
-    /// with the lifetime tied to this `Issue`
-    pub fn extra<'de, T>(&self, key: &str) -> Option<Result<T, JsonError>>
+    /// This can be used to access any objects in the `.fields` map, or any
+    /// nonstandard `.extra`s that specific Jira instances may add.
+    ///
+    /// Examples
+    ///
+    /// // Access a known object under the `fields` map
+    /// issue.access("fields.creator.id")
+    ///
+    /// // Access a nonstandard instance specific field
+    /// issue.access("nonstandard.jira.key")
+    pub fn access<'de, T>(&self, dotted: &str) -> Option<Result<T, JsonError>>
     where
         T: Deserialize<'de>,
         'a: 'de,
     {
-        self.extra.get(key).map(|raw| json::from_str(raw.get()))
+        self.access_with(dotted.split("."))
+    }
+
+    /// Attempt to access and deserialize an arbitrary value with the given pointer
+    /// segments.
+    pub fn access_with<'de, 'i, T, I>(&self, ptr: I) -> Option<Result<T, JsonError>>
+    where
+        I: Iterator<Item = &'i str>,
+        T: Deserialize<'de>,
+        'a: 'de,
+    {
+        let mut ptr = ptr;
+        let key = ptr.next()?;
+
+        let map = match key {
+            Self::FIELDS => self.fields.get(ptr.next()?),
+            _ => self.extra.get(key),
+        };
+
+        map.map(|&raw| Pointer::default().with_segments(raw, ptr.map(Segment::lazy)))
     }
 
     fn string_field(&self, key: &str) -> Option<Result<&str, JsonError>> {
-        self.field::<&str>(key)
+        self.field(key)
     }
 
     fn user_field(&self, key: &str) -> Option<Result<User, JsonError>> {
-        self.field::<User>(key)
+        self.field(key)
     }
 
     /// User assigned to the issue
@@ -120,7 +171,7 @@ impl<'a> Issue<'a> {
 
     /// Issue status
     pub fn status(&self) -> Option<Status> {
-        self.field::<Status>("status").and_then(Result::ok)
+        self.field("status").and_then(Result::ok)
     }
 
     /// Issue description
@@ -145,18 +196,18 @@ impl<'a> Issue<'a> {
 
     /// Description of the issue's type
     pub fn issue_type(&self) -> Option<IssueType> {
-        self.field::<IssueType>("issuetype").and_then(Result::ok)
+        self.field("issuetype").and_then(Result::ok)
     }
 
     /// Labels assigned to this issue
     pub fn labels(&self) -> Option<Vec<&str>> {
-        self.field::<Vec<&str>>("labels").and_then(Result::ok)
+        self.field("labels").and_then(Result::ok)
     }
 
     // TODO: This appears to return an object not str... investigate
     /// Issue fix version(s)
     pub fn fix_versions(&self) -> Option<Vec<&str>> {
-        self.field::<Vec<&str>>("fixVersions").and_then(Result::ok)
+        self.field("fixVersions").and_then(Result::ok)
     }
 
     /// Issue's comments
@@ -169,29 +220,27 @@ impl<'a> Issue<'a> {
 
     /// Issue's priority
     pub fn priority(&self) -> Option<Priority> {
-        self.field::<Priority>("priority").and_then(Result::ok)
+        self.field("priority").and_then(Result::ok)
     }
 
     /// Other Issues that are linked to the current Issue
     pub fn issue_links(&self) -> Option<Vec<IssueLink>> {
-        self.field::<Vec<IssueLink>>("issuelinks")
-            .and_then(Result::ok)
+        self.field("issuelinks").and_then(Result::ok)
     }
 
     /// The project this Issue is assigned to
     pub fn project(&self) -> Option<Project> {
-        self.field::<Project>("project").and_then(Result::ok)
+        self.field("project").and_then(Result::ok)
     }
 
     /// This Issue's resolution, if it exists
     pub fn resolution(&self) -> Option<Resolution> {
-        self.field::<Resolution>("resolution").and_then(Result::ok)
+        self.field("resolution").and_then(Result::ok)
     }
 
     /// Any attachments this Issue contains
     pub fn attachment(&self) -> Option<Vec<Attachment>> {
-        self.field::<Vec<Attachment>>("attachment")
-            .and_then(Result::ok)
+        self.field("attachment").and_then(Result::ok)
     }
 }
 
