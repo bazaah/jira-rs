@@ -70,10 +70,16 @@ pub struct Issue<'a> {
 impl<'a> Issue<'a> {
     const FIELDS: &'static str = "fields";
 
-    /// Attempt to deserialize an arbitrary value with the given key from the `fields` of this Issue.
+    /// Attempt to deserialize an arbitrary value from the `fields` with the given dot `.`
+    /// delimited json pointer.
     ///
-    /// Note the bound `T: Deserialize<'de>` allows for zero copy deserialization,
-    /// with the lifetime tied to this `Issue`
+    /// Examples
+    ///
+    /// // Access the first inward issue's id
+    /// issue.field("issuelinks.0.inwardIssue.id")
+    ///
+    /// // Access a custom field
+    /// issue.field("customfield_10000")
     pub fn field<'de, T>(&self, dotted: &str) -> Option<Result<T, JsonError>>
     where
         T: Deserialize<'de>,
@@ -82,6 +88,8 @@ impl<'a> Issue<'a> {
         self.field_with(dotted.split("."))
     }
 
+    /// Attempt to deserialize an arbitrary value from the `fields` with the given pointer
+    /// segments.
     pub fn field_with<'de, 'i, T, I>(&self, ptr: I) -> Option<Result<T, JsonError>>
     where
         I: Iterator<Item = &'i str>,
@@ -93,6 +101,19 @@ impl<'a> Issue<'a> {
         self.access_with(ptr)
     }
 
+    /// Attempt to access and deserialize an arbitrary value with the given dot `.`
+    /// delimited pointer.
+    ///
+    /// This can be used to access any objects in the `.fields` map, or any
+    /// nonstandard `.extra`s that specific Jira instances may add.
+    ///
+    /// Examples
+    ///
+    /// // Access a known object under the `fields` map
+    /// issue.access("fields.creator.id")
+    ///
+    /// // Access a nonstandard instance specific field
+    /// issue.access("nonstandard.jira.key")
     pub fn access<'de, T>(&self, dotted: &str) -> Option<Result<T, JsonError>>
     where
         T: Deserialize<'de>,
@@ -101,6 +122,8 @@ impl<'a> Issue<'a> {
         self.access_with(dotted.split("."))
     }
 
+    /// Attempt to access and deserialize an arbitrary value with the given pointer
+    /// segments.
     pub fn access_with<'de, 'i, T, I>(&self, ptr: I) -> Option<Result<T, JsonError>>
     where
         I: Iterator<Item = &'i str>,
