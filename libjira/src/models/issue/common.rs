@@ -315,3 +315,308 @@ pub mod id {
         }
     }
 }
+
+#[cfg(test)]
+pub(crate) mod types {
+    use serde_json::{json, Value as Json};
+
+    pub fn user() -> Json {
+        json!({
+            "active": true,
+            "avatarUrls": {
+                "foo": "bar",
+            },
+            "displayName": "foo",
+            "emailAddress": "foo",
+            "key": "foo",
+            "name": "foo",
+            "self": "foo",
+            "timeZone": "foo",
+        })
+    }
+
+    pub fn status() -> Json {
+        json!({
+            "description": "foo",
+            "iconUrl": "foo",
+            "id": "42",
+            "name": "foo",
+            "self": "foo",
+        })
+    }
+
+    pub fn issuetype() -> Json {
+        json!({
+            "description": "foo",
+            "iconUrl": "foo",
+            "id": "42",
+            "name": "foo",
+            "self": "foo",
+            "subtask": true,
+        })
+    }
+
+    pub fn version() -> Json {
+        json!({
+            "archived": true,
+            "id": "42",
+            "name": "foo",
+            "released": true,
+            "self": "foo",
+        })
+    }
+
+    pub fn comment() -> Json {
+        json!({
+            "id": "42",
+            "self": "foo",
+            "author": null,
+            "update_author": null,
+            "created": "foo",
+            "updated": "foo",
+            "body": "foo",
+            "visibility": null,
+        })
+    }
+
+    pub fn comments() -> Json {
+        json!([comment(), comment(),])
+    }
+
+    pub fn visibility() -> Json {
+        json!({
+            "type": "foo",
+            "value": "foo",
+        })
+    }
+
+    pub fn project() -> Json {
+        json!({
+            "id": "42",
+            "self": "foo",
+            "key": "foo",
+            "name": "foo",
+        })
+    }
+
+    pub fn issuelink() -> Json {
+        json!({
+            "id": "42",
+            "self": "foo",
+            "outwardIssue": null,
+            "inwardIssue": null,
+            "type": linktype(),
+        })
+    }
+
+    pub fn linktype() -> Json {
+        json!({
+                "id": "42",
+                "self": "foo",
+                "inward": "foo",
+                "outward": "foo",
+                "name": "foo",
+        })
+    }
+
+    pub fn resolution() -> Json {
+        json!({
+            "name": "foo"
+        })
+    }
+
+    pub fn attachment() -> Json {
+        json!({
+            "id": "42",
+            "self": "foo",
+            "filename": "foo",
+            "author": user(),
+            "created": "foo",
+            "size": 42,
+            "mimeType": "foo",
+            "content": "foo",
+            "thumbnail": "foo",
+        })
+    }
+
+    pub fn priority() -> Json {
+        json!({
+            "id": "42",
+            "self": "foo",
+            "iconUrl": "foo",
+            "name": "foo",
+        })
+    }
+
+    pub fn nested_response() -> Json {
+        json!({
+            "status": 200,
+            "errorCollection": error_collection(),
+        })
+    }
+
+    pub fn error_collection() -> Json {
+        json!({
+            "errorMessages": ["foo", "bar"],
+            "errors": {"foo": "bar"},
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    macro_rules! jbytes {
+        ($($json:tt)+) => {
+            serde_json::to_vec(&json!($($json)+)).expect("Failed to serialize json in test macro... this is a bug")
+        }
+    }
+
+    #[test]
+    fn deserialize_user() {
+        let json = jbytes!(types::user());
+        let user: Result<User, _> = deserialize(&json);
+
+        assert!(user.is_ok())
+    }
+
+    #[test]
+    fn deserialize_status() {
+        let json = jbytes!(types::status());
+
+        let status: Result<Status, _> = deserialize(&json);
+
+        assert!(status.is_ok())
+    }
+
+    #[test]
+    fn deserialize_issuetype() {
+        let json = jbytes!(types::issuetype());
+
+        let issuetype: Result<IssueType, _> = deserialize(&json);
+
+        assert!(issuetype.is_ok())
+    }
+
+    #[test]
+    fn deserialize_version() {
+        let json = jbytes!(types::version());
+
+        let version: Result<Version, _> = deserialize(&json);
+
+        assert!(version.is_ok())
+    }
+
+    #[test]
+    fn deserialize_comment() {
+        let json = jbytes!(types::comment());
+
+        let comment: Result<Comment, _> = deserialize(&json);
+
+        assert!(comment.is_ok())
+    }
+
+    #[test]
+    fn deserialize_comments() {
+        let json = jbytes!(types::comments());
+
+        let comments: Result<Comments, _> = deserialize(&json);
+
+        assert!(comments.is_ok())
+    }
+
+    #[test]
+    fn deserialize_visibility() {
+        let json = jbytes!(types::visibility());
+
+        let viz: Result<Visibility, _> = deserialize(&json);
+
+        assert!(viz.is_ok())
+    }
+
+    #[test]
+    fn deserialize_project() {
+        let json = jbytes!(types::project());
+
+        let project: Result<Project, _> = deserialize(&json);
+
+        assert!(project.is_ok())
+    }
+
+    #[test]
+    fn deserialize_issuelink() {
+        let json = jbytes!(types::issuelink());
+
+        let issuelink: Result<IssueLink, _> = deserialize(&json);
+
+        assert!(issuelink.is_ok())
+    }
+
+    #[test]
+    fn deserialize_linktype() {
+        let json = jbytes!(types::linktype());
+
+        let issuetype: Result<LinkType, _> = deserialize(&json);
+
+        assert!(issuetype.is_ok())
+    }
+
+    #[test]
+    fn deserialize_resolution() {
+        let json = jbytes!(types::resolution());
+
+        let resolution: Result<Resolution, _> = deserialize(&json);
+
+        assert!(resolution.is_ok())
+    }
+
+    #[test]
+    fn deserialize_attachment() {
+        let json = jbytes!(types::attachment());
+
+        let attachment: Result<Attachment, _> = deserialize(&json);
+
+        assert!(attachment.is_ok())
+    }
+
+    #[test]
+    fn deserialize_priority() {
+        let json = jbytes!(types::priority());
+
+        let priority: Result<Priority, _> = deserialize(&json);
+
+        assert!(priority.is_ok())
+    }
+
+    #[test]
+    fn deserialize_nested_response() {
+        let json = jbytes!(types::nested_response());
+
+        let response: Result<NestedResponse, _> = deserialize(&json);
+
+        assert!(response.is_ok())
+    }
+
+    #[test]
+    fn deserialize_error_collection() {
+        let json = jbytes!(types::error_collection());
+
+        let collection: Result<ErrorCollection, _> = deserialize(&json);
+
+        assert!(collection.is_ok())
+    }
+
+    fn deserialize<'de, 'a: 'de, T>(bytes: &'a [u8]) -> Result<T, serde_json::Error>
+    where
+        T: Deserialize<'de>,
+    {
+        let value = serde_json::from_slice(bytes).map_err(|error| {
+            dbg!(&error);
+            error
+        });
+
+        value
+    }
+}
