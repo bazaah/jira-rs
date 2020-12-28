@@ -67,6 +67,7 @@ pub struct Version<'a> {
 // Wrapper struct for flattening Jira's json
 // path to comments
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(transparent)]
 pub(super) struct Comments<'a> {
     #[serde(borrow)]
     inner: Vec<Comment<'a>>,
