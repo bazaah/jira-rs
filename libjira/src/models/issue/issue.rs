@@ -53,7 +53,7 @@ impl Serialize for IssueHandle {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Issue<'a> {
     #[serde(rename = "self")]
     pub self_link: &'a str,
@@ -65,6 +65,102 @@ pub struct Issue<'a> {
     // Capture any extra fields returned (if any)
     #[serde(flatten)]
     pub extra: HashMap<&'a str, &'a RawJson>,
+}
+
+/*
+ * Note that we write out our deserialize impl for Issue because
+ * `serde_json::RawValue` is currently bugged and will automatically fail
+ * deserialization when used in a structure with `serde(flatten)` on it,
+ * as we do here with `extra`.
+ *
+ * TODO: Revert to macro deserialize when this is fixed
+ * Tracking issue: https://github.com/serde-rs/json/issues/599
+ */
+impl<'a, 'de: 'a> Deserialize<'de> for Issue<'a> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{self, MapAccess, Visitor};
+        use std::{fmt, marker::PhantomData};
+
+        struct IssueVisitor<'a>(PhantomData<fn() -> Issue<'a>>);
+        impl<'a> IssueVisitor<'a> {
+            const SELF_LINK: &'static str = "self";
+            const ID: &'static str = "id";
+            const KEY: &'static str = "key";
+            const EXPAND: &'static str = "expand";
+            const FIELDS: &'static str = "fields";
+            const EXTRA: &'static str = "extra";
+        }
+
+        impl<'a, 'de: 'a> Visitor<'de> for IssueVisitor<'a> {
+            type Value = Issue<'a>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a Jira issue")
+            }
+
+            fn visit_map<A>(self, mut access: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let dupe = |field| de::Error::duplicate_field(field);
+                let missing = |field| de::Error::missing_field(field);
+
+                let mut self_link = None;
+                let mut id = None;
+                let mut key = None;
+                let mut expand = None;
+                let mut fields = None;
+                let mut extra: Option<HashMap<&str, &RawJson>> = None;
+
+                while let Some(map_key) = access.next_key()? {
+                    match map_key {
+                        Self::SELF_LINK if self_link.is_some() => {
+                            return Err(dupe(Self::SELF_LINK))
+                        }
+                        Self::SELF_LINK => self_link = Some(access.next_value()?),
+
+                        Self::ID if id.is_some() => return Err(dupe(Self::ID)),
+                        Self::ID => id = Some(access.next_value()?),
+
+                        Self::KEY if key.is_some() => return Err(dupe(Self::KEY)),
+                        Self::KEY => key = Some(access.next_value()?),
+
+                        Self::EXPAND if expand.is_some() => return Err(dupe(Self::EXPAND)),
+                        Self::EXPAND => expand = Some(access.next_value()?),
+
+                        Self::FIELDS if fields.is_some() => return Err(dupe(Self::FIELDS)),
+                        Self::FIELDS => fields = Some(access.next_value()?),
+
+                        unknown => match extra {
+                            Some(ref mut map) => {
+                                map.insert(unknown, access.next_value()?);
+                            }
+                            None => {
+                                let mut map = HashMap::new();
+                                map.insert(unknown, access.next_value()?);
+
+                                extra = Some(map)
+                            }
+                        },
+                    }
+                }
+
+                Ok(Issue {
+                    self_link: self_link.ok_or_else(|| missing(Self::SELF_LINK))?,
+                    id: id.ok_or_else(|| missing(Self::ID))?,
+                    key: key.ok_or_else(|| missing(Self::KEY))?,
+                    expand: expand.ok_or_else(|| missing(Self::EXPAND))?,
+                    fields: fields.ok_or_else(|| missing(Self::FIELDS))?,
+                    extra: extra.unwrap_or_default(),
+                })
+            }
+        }
+
+        deserializer.deserialize_map(IssueVisitor(Default::default()))
+    }
 }
 
 impl<'a> Issue<'a> {
