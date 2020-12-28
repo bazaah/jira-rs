@@ -204,7 +204,6 @@ impl<'a> Issue<'a> {
         self.field("labels").and_then(Result::ok)
     }
 
-    // TODO: This appears to return an object not str... investigate
     /// Issue fix version(s)
     pub fn fix_versions(&self) -> Option<Vec<Version>> {
         self.field("fixVersions").and_then(Result::ok)
