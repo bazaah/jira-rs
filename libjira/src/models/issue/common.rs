@@ -188,11 +188,11 @@ fn skip_errors<'a, 'de: 'a, D>(deserializer: D) -> Result<Option<ErrorCollection
 where
     D: de::Deserializer<'de>,
 {
-    let collection: ErrorCollection = Deserialize::deserialize(deserializer)?;
+    let collection: Option<ErrorCollection> = Deserialize::deserialize(deserializer)?;
 
-    match collection.is_error() {
-        true => Ok(Some(collection)),
-        false => Ok(None),
+    match collection {
+        Some(col) if col.is_error() => Ok(Some(col)),
+        _ => Ok(None),
     }
 }
 
