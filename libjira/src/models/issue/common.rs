@@ -161,6 +161,7 @@ pub struct Attachment<'a> {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Priority<'a> {
+    #[serde(rename = "iconUrl")]
     pub icon_url: &'a str,
     #[serde(with = "id")]
     pub id: u64,
