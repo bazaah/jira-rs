@@ -351,3 +351,83 @@ mod handle {
         pub(super) handle: Issue<'this>,
     }
 }
+
+#[cfg(test)]
+pub(crate) mod types {
+    use crate::models::issue::common;
+    use serde_json::{json, Value as Json};
+
+    pub fn issue() -> Json {
+        json!({
+            "self": "foo",
+            "id": "foo",
+            "key": "foo",
+            "expand": "foo",
+            "fields": {
+                "assignee": common::types::user(),
+                "creator": common::types::user(),
+                "reporter": common::types::user(),
+                "summary": "foo",
+                "status": common::types::status(),
+                "description": "foo",
+                "updated": "foo",
+                "created": "foo",
+                "resolutiondate": "foo",
+                "issuetype": common::types::issuetype(),
+                "labels": ["foo", "bar"],
+                "fixVersions": [common::types::version()],
+                "comment": {
+                    "comments": common::types::comments()
+                },
+                "issuelinks": [common::types::issuelink()],
+                "priority": common::types::priority(),
+                "resolution": common::types::resolution(),
+                "attachment": common::types::attachment(),
+            },
+            "nonstandard": "field",
+            "another": "strange field",
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value as Json;
+
+    #[test]
+    fn deserialize_issue_handle() {
+        let json = jbytes(types::issue());
+
+        let handle: Result<IssueHandle, _> = deserialize(&json);
+
+        assert!(handle.is_ok())
+    }
+
+    #[test]
+    fn deserialize_issue() {
+        let json = jbytes(types::issue());
+
+        println!("{}", serde_json::to_string_pretty(&types::issue()).unwrap());
+
+        let issue: Result<Issue, _> = deserialize(&json);
+
+        assert!(issue.is_ok())
+    }
+
+    fn jbytes(json: Json) -> Vec<u8> {
+        serde_json::to_vec(&json).expect("Failed to serialize in issue tests... this is a bug")
+    }
+
+    fn deserialize<'de, 'a: 'de, T>(bytes: &'a [u8]) -> Result<T, serde_json::Error>
+    where
+        T: Deserialize<'de>,
+    {
+        let value = serde_json::from_slice(bytes).map_err(|error| {
+            dbg!(&error);
+            error
+        });
+
+        value
+    }
+}
