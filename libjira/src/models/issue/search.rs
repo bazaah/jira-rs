@@ -72,3 +72,60 @@ mod handle {
         pub(super) handle: Search<'this>,
     }
 }
+
+#[cfg(test)]
+pub(crate) mod types {
+    use crate::models::issue::issue;
+    use serde_json::{json, Value as Json};
+
+    pub fn search() -> Json {
+        json!({
+            "expand": "foo",
+            "maxResults": 42,
+            "startAt": 42,
+            "total": 42,
+            "issues": [issue::types::issue()]
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value as Json;
+
+    #[test]
+    fn deserialize_search_handle() {
+        let json = jbytes(types::search());
+
+        let search: Result<SearchHandle, _> = deserialize(&json);
+
+        assert!(search.is_ok())
+    }
+
+    #[test]
+    fn deserialize_search() {
+        let json = jbytes(types::search());
+
+        let search: Result<Search, _> = deserialize(&json);
+
+        assert!(search.is_ok())
+    }
+
+    fn jbytes(json: Json) -> Vec<u8> {
+        serde_json::to_vec(&json)
+            .expect("Failed to serialize in models/issue/search tests... this is a bug")
+    }
+
+    fn deserialize<'de, 'a: 'de, T>(bytes: &'a [u8]) -> Result<T, serde_json::Error>
+    where
+        T: Deserialize<'de>,
+    {
+        let value = serde_json::from_slice(bytes).map_err(|error| {
+            dbg!(&error);
+            error
+        });
+
+        value
+    }
+}

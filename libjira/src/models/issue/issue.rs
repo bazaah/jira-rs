@@ -3,7 +3,7 @@ use jsonp::{Pointer, Segment};
 use {
     super::*,
     json::{value::RawValue as RawJson, Error as JsonError},
-    serde::Serializer,
+    serde::{Deserializer, Serializer},
     serde_json as json,
     std::collections::HashMap,
 };
@@ -53,11 +53,12 @@ impl Serialize for IssueHandle {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Issue<'a> {
     #[serde(rename = "self")]
     pub self_link: &'a str,
-    pub id: &'a str,
+    #[serde(with = "common::id")]
+    pub id: u64,
     pub key: &'a str,
     pub expand: &'a str,
     pub fields: HashMap<&'a str, &'a RawJson>,
@@ -243,6 +244,120 @@ impl<'a> Issue<'a> {
     }
 }
 
+/*
+ * Note that we write out our deserialize impl for Issue because
+ * `serde_json::RawValue` is currently bugged and will automatically fail
+ * deserialization when used in a structure with `serde(flatten)` on it,
+ * as we do here with `extra`.
+ *
+ * TODO: Revert to macro deserialize when this is fixed
+ * Tracking issue: https://github.com/serde-rs/json/issues/599
+ */
+impl<'a, 'de: 'a> Deserialize<'de> for Issue<'a> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        use serde::de::{self, MapAccess, Visitor};
+        use std::{fmt, marker::PhantomData};
+
+        /// Wrapper for forwarding the deserialization impl to
+        /// `common::id`'s impl
+        struct IdDeserializer {
+            value: u64,
+        }
+
+        impl<'de> Deserialize<'de> for IdDeserializer {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                Ok(IdDeserializer {
+                    value: common::id::deserialize(deserializer)?,
+                })
+            }
+        }
+
+        /// Custom Visitor for deserializing Issue
+        struct IssueVisitor<'a>(PhantomData<fn() -> Issue<'a>>);
+        impl<'a> IssueVisitor<'a> {
+            const SELF_LINK: &'static str = "self";
+            const ID: &'static str = "id";
+            const KEY: &'static str = "key";
+            const EXPAND: &'static str = "expand";
+            const FIELDS: &'static str = "fields";
+            const EXTRA: &'static str = "extra";
+        }
+
+        impl<'a, 'de: 'a> Visitor<'de> for IssueVisitor<'a> {
+            type Value = Issue<'a>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a Jira issue")
+            }
+
+            fn visit_map<A>(self, mut access: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let dupe = |field| de::Error::duplicate_field(field);
+                let missing = |field| de::Error::missing_field(field);
+
+                let mut self_link = None;
+                let mut id: Option<IdDeserializer> = None;
+                let mut key = None;
+                let mut expand = None;
+                let mut fields = None;
+                let mut extra: Option<HashMap<&str, &RawJson>> = None;
+
+                while let Some(map_key) = access.next_key()? {
+                    match map_key {
+                        Self::SELF_LINK if self_link.is_some() => {
+                            return Err(dupe(Self::SELF_LINK))
+                        }
+                        Self::SELF_LINK => self_link = Some(access.next_value()?),
+
+                        Self::ID if id.is_some() => return Err(dupe(Self::ID)),
+                        Self::ID => id = Some(access.next_value()?),
+
+                        Self::KEY if key.is_some() => return Err(dupe(Self::KEY)),
+                        Self::KEY => key = Some(access.next_value()?),
+
+                        Self::EXPAND if expand.is_some() => return Err(dupe(Self::EXPAND)),
+                        Self::EXPAND => expand = Some(access.next_value()?),
+
+                        Self::FIELDS if fields.is_some() => return Err(dupe(Self::FIELDS)),
+                        Self::FIELDS => fields = Some(access.next_value()?),
+
+                        unknown => match extra {
+                            Some(ref mut map) => {
+                                map.insert(unknown, access.next_value()?);
+                            }
+                            None => {
+                                let mut map = HashMap::new();
+                                map.insert(unknown, access.next_value()?);
+
+                                extra = Some(map)
+                            }
+                        },
+                    }
+                }
+
+                Ok(Issue {
+                    self_link: self_link.ok_or_else(|| missing(Self::SELF_LINK))?,
+                    id: id.ok_or_else(|| missing(Self::ID))?.value,
+                    key: key.ok_or_else(|| missing(Self::KEY))?,
+                    expand: expand.ok_or_else(|| missing(Self::EXPAND))?,
+                    fields: fields.ok_or_else(|| missing(Self::FIELDS))?,
+                    extra: extra.unwrap_or_default(),
+                })
+            }
+        }
+
+        deserializer.deserialize_map(IssueVisitor(Default::default()))
+    }
+}
+
 mod handle {
     use super::*;
     use ouroboros::self_referencing as ouroboros;
@@ -253,5 +368,86 @@ mod handle {
         store: Box<RawJson>,
         #[borrows(store)]
         pub(super) handle: Issue<'this>,
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod types {
+    use crate::models::issue::common;
+    use serde_json::{json, Value as Json};
+
+    pub fn issue() -> Json {
+        json!({
+            "self": "foo",
+            "id": "42",
+            "key": "foo",
+            "expand": "foo",
+            "fields": {
+                "assignee": common::types::user(),
+                "creator": common::types::user(),
+                "reporter": common::types::user(),
+                "summary": "foo",
+                "status": common::types::status(),
+                "description": "foo",
+                "updated": "foo",
+                "created": "foo",
+                "resolutiondate": "foo",
+                "issuetype": common::types::issuetype(),
+                "labels": ["foo", "bar"],
+                "fixVersions": [common::types::version()],
+                "comment": {
+                    "comments": common::types::comments()
+                },
+                "issuelinks": [common::types::issuelink()],
+                "priority": common::types::priority(),
+                "resolution": common::types::resolution(),
+                "attachment": common::types::attachment(),
+            },
+            "nonstandard": "field",
+            "another": "strange field",
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value as Json;
+
+    #[test]
+    fn deserialize_issue_handle() {
+        let json = jbytes(types::issue());
+
+        let handle: Result<IssueHandle, _> = deserialize(&json);
+
+        assert!(handle.is_ok())
+    }
+
+    #[test]
+    fn deserialize_issue() {
+        let json = jbytes(types::issue());
+
+        println!("{}", serde_json::to_string_pretty(&types::issue()).unwrap());
+
+        let issue: Result<Issue, _> = deserialize(&json);
+
+        assert!(issue.is_ok())
+    }
+
+    fn jbytes(json: Json) -> Vec<u8> {
+        serde_json::to_vec(&json)
+            .expect("Failed to serialize in models/issue/issue tests... this is a bug")
+    }
+
+    fn deserialize<'de, 'a: 'de, T>(bytes: &'a [u8]) -> Result<T, serde_json::Error>
+    where
+        T: Deserialize<'de>,
+    {
+        let value = serde_json::from_slice(bytes).map_err(|error| {
+            dbg!(&error);
+            error
+        });
+
+        value
     }
 }
