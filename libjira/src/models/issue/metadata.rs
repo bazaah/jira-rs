@@ -194,3 +194,188 @@ mod handle {
     }
 }
 
+#[cfg(test)]
+pub(crate) mod types {
+    use crate::models::issue::common;
+    use serde_json::{json, Value as Json};
+
+    pub fn meta_create() -> Json {
+        json!({
+            "expand": "foo",
+            "projects": [project_meta()],
+        })
+    }
+
+    pub fn meta_edit() -> Json {
+        json!({
+            "fields": {
+                "foo": issuefield_meta(),
+            },
+        })
+    }
+
+    pub fn project_meta() -> Json {
+        let mut value = json!({ "issuetypes": [issuetype_meta()] });
+
+        value
+            .as_object_mut()
+            .map(|map| map.append(common::types::project().as_object_mut().unwrap()));
+
+        value
+    }
+
+    pub fn issuetype_meta() -> Json {
+        let mut value = json!({
+            "fields": {
+                "foo": issuefield_meta(),
+            },
+        });
+
+        value
+            .as_object_mut()
+            .map(|map| map.append(common::types::issuetype().as_object_mut().unwrap()));
+
+        value
+    }
+
+    pub fn issuefield_meta() -> Json {
+        json!({
+            "required": true,
+            "name": "foo",
+            "fieldId": "42",
+            "defaultValue": null,
+            "schema": field_schema(),
+            "operations": [operation_set(), operation_edit()],
+            "allowedValues": null,
+        })
+    }
+
+    pub fn field_schema() -> Json {
+        json!({
+            "type": "foo",
+            "system": "foo",
+        })
+    }
+
+    pub fn operation_set() -> Json {
+        json!("set")
+    }
+
+    pub fn operation_edit() -> Json {
+        json!("edit")
+    }
+
+    pub fn operation_add() -> Json {
+        json!("add")
+    }
+
+    pub fn operation_remove() -> Json {
+        json!("remove")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value as Json;
+
+    #[test]
+    fn deserialize_meta_create() {
+        let json = jbytes(types::meta_create());
+
+        let create: Result<MetaCreate, _> = deserialize(&json);
+
+        assert!(create.is_ok())
+    }
+
+    #[test]
+    fn deserialize_meta_edit() {
+        let json = jbytes(types::meta_edit());
+
+        let edit: Result<MetaEdit, _> = deserialize(&json);
+
+        assert!(edit.is_ok())
+    }
+
+    #[test]
+    fn deserialize_project_meta() {
+        let json = jbytes(types::project_meta());
+
+        let project: Result<ProjectMeta, _> = deserialize(&json);
+
+        assert!(project.is_ok())
+    }
+
+    #[test]
+    fn deserialize_issuetype_meta() {
+        let json = jbytes(types::issuetype_meta());
+
+        let issuetype: Result<IssueTypeMeta, _> = deserialize(&json);
+
+        assert!(issuetype.is_ok())
+    }
+
+    #[test]
+    fn deserialize_issuefield_meta() {
+        let json = jbytes(types::issuefield_meta());
+
+        let issuefield: Result<IssueFieldsMeta, _> = deserialize(&json);
+
+        assert!(issuefield.is_ok())
+    }
+
+    #[test]
+    fn deserialize_field_schema() {
+        let json = jbytes(types::field_schema());
+
+        let schema: Result<FieldSchema, _> = deserialize(&json);
+
+        assert!(schema.is_ok())
+    }
+
+    fn deserialize_operation() {
+        struct OpT {
+            op: Json,
+            t: &'static str,
+        };
+        let operations = vec![
+            OpT {
+                op: types::operation_set(),
+                t: "set",
+            },
+            OpT {
+                op: types::operation_edit(),
+                t: "edit",
+            },
+            OpT {
+                op: types::operation_add(),
+                t: "add",
+            },
+            OpT {
+                op: types::operation_remove(),
+                t: "remove",
+            },
+        ];
+
+        for test in operations.into_iter() {
+            assert_eq!(jbytes(test.op), test.t.as_bytes())
+        }
+    }
+
+    fn jbytes(json: Json) -> Vec<u8> {
+        serde_json::to_vec(&json)
+            .expect("Failed to serialize in models/issue/metadata tests... this is a bug")
+    }
+
+    fn deserialize<'de, 'a: 'de, T>(bytes: &'a [u8]) -> Result<T, serde_json::Error>
+    where
+        T: Deserialize<'de>,
+    {
+        let value = serde_json::from_slice(bytes).map_err(|error| {
+            dbg!(&error);
+            error
+        });
+
+        value
+    }
+}
