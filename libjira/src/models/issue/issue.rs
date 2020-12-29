@@ -3,7 +3,7 @@ use jsonp::{Pointer, Segment};
 use {
     super::*,
     json::{value::RawValue as RawJson, Error as JsonError},
-    serde::Serializer,
+    serde::{Deserializer, Serializer},
     serde_json as json,
     std::collections::HashMap,
 };
@@ -57,7 +57,8 @@ impl Serialize for IssueHandle {
 pub struct Issue<'a> {
     #[serde(rename = "self")]
     pub self_link: &'a str,
-    pub id: &'a str,
+    #[serde(with = "common::id")]
+    pub id: u64,
     pub key: &'a str,
     pub expand: &'a str,
     pub fields: HashMap<&'a str, &'a RawJson>,
@@ -79,11 +80,29 @@ pub struct Issue<'a> {
 impl<'a, 'de: 'a> Deserialize<'de> for Issue<'a> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         use serde::de::{self, MapAccess, Visitor};
         use std::{fmt, marker::PhantomData};
 
+        /// Wrapper for forwarding the deserialization impl to
+        /// `common::id`'s impl
+        struct IdDeserializer {
+            value: u64,
+        }
+
+        impl<'de> Deserialize<'de> for IdDeserializer {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                Ok(IdDeserializer {
+                    value: common::id::deserialize(deserializer)?,
+                })
+            }
+        }
+
+        /// Custom Visitor for deserializing Issue
         struct IssueVisitor<'a>(PhantomData<fn() -> Issue<'a>>);
         impl<'a> IssueVisitor<'a> {
             const SELF_LINK: &'static str = "self";
@@ -109,7 +128,7 @@ impl<'a, 'de: 'a> Deserialize<'de> for Issue<'a> {
                 let missing = |field| de::Error::missing_field(field);
 
                 let mut self_link = None;
-                let mut id = None;
+                let mut id: Option<IdDeserializer> = None;
                 let mut key = None;
                 let mut expand = None;
                 let mut fields = None;
@@ -150,7 +169,7 @@ impl<'a, 'de: 'a> Deserialize<'de> for Issue<'a> {
 
                 Ok(Issue {
                     self_link: self_link.ok_or_else(|| missing(Self::SELF_LINK))?,
-                    id: id.ok_or_else(|| missing(Self::ID))?,
+                    id: id.ok_or_else(|| missing(Self::ID))?.value,
                     key: key.ok_or_else(|| missing(Self::KEY))?,
                     expand: expand.ok_or_else(|| missing(Self::EXPAND))?,
                     fields: fields.ok_or_else(|| missing(Self::FIELDS))?,
@@ -360,7 +379,7 @@ pub(crate) mod types {
     pub fn issue() -> Json {
         json!({
             "self": "foo",
-            "id": "foo",
+            "id": "42",
             "key": "foo",
             "expand": "foo",
             "fields": {
