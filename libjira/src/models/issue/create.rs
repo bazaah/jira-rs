@@ -75,3 +75,56 @@ mod handle {
     }
 }
 
+#[cfg(test)]
+pub(crate) mod types {
+    use serde_json::{json, Value as Json};
+
+    pub fn created() -> Json {
+        json!({
+            "id": "42",
+            "self": "foo",
+            "key": "foo",
+            "transition": null,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value as Json;
+
+    #[test]
+    fn deserialize_created_handle() {
+        let json = jbytes(types::created());
+
+        let handle: Result<CreatedHandle, _> = deserialize(&json);
+
+        assert!(handle.is_ok())
+    }
+
+    #[test]
+    fn deserialize_created() {
+        let json = jbytes(types::created());
+
+        let created: Result<Created, _> = deserialize(&json);
+
+        assert!(created.is_ok())
+    }
+
+    fn jbytes(json: Json) -> Vec<u8> {
+        serde_json::to_vec(&json).expect("Failed to serialize in issue tests... this is a bug")
+    }
+
+    fn deserialize<'de, 'a: 'de, T>(bytes: &'a [u8]) -> Result<T, serde_json::Error>
+    where
+        T: Deserialize<'de>,
+    {
+        let value = serde_json::from_slice(bytes).map_err(|error| {
+            dbg!(&error);
+            error
+        });
+
+        value
+    }
+}
