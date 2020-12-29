@@ -14,7 +14,7 @@ If you are interested in it being published please open an issue.
 ## Under Development
 
 - [x] options/unit-tests
-- [ ] models/unit-tests
+- [x] models/unit-tests
 - [ ] models/documentation
 
 ## Prior Work
