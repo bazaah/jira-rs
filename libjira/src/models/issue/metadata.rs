@@ -116,7 +116,7 @@ pub struct ProjectMeta<'a> {
     #[serde(flatten, borrow)]
     pub project: Project<'a>,
     #[serde(rename = "issuetypes", borrow)]
-    issue_types: Vec<IssueTypeMeta<'a>>,
+    pub issue_types: Vec<IssueTypeMeta<'a>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
