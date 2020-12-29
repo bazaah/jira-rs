@@ -435,7 +435,8 @@ mod tests {
     }
 
     fn jbytes(json: Json) -> Vec<u8> {
-        serde_json::to_vec(&json).expect("Failed to serialize in issue tests... this is a bug")
+        serde_json::to_vec(&json)
+            .expect("Failed to serialize in models/issue/issue tests... this is a bug")
     }
 
     fn deserialize<'de, 'a: 'de, T>(bytes: &'a [u8]) -> Result<T, serde_json::Error>
