@@ -1,6 +1,6 @@
 mod cli;
 
-use tokio::io::AsyncReadExt;
+use std::io::Read;
 
 use crate::cli::{CliOptions, Command, Issues as IssuesCmd, MetaKind};
 use {
@@ -8,7 +8,7 @@ use {
     jira_rs::{client::Jira, issue},
     json::{to_writer_pretty as json_pretty, value::RawValue as RawJson},
     serde_json as json,
-    std::{convert::TryFrom, io::stdout, path::PathBuf},
+    std::io::stdout,
 };
 
 #[tokio::main(worker_threads = 2)]
@@ -24,6 +24,8 @@ async fn main() -> Result<()> {
     match cli.command {
         Command::Issues(cmd) => match cmd {
             IssuesCmd::Get { ref key, ref opts } => {
+                let key = to_string(key)?;
+
                 let options = opts.into();
                 let issue = client.issues().get(key, Some(&options)).await?;
 
@@ -31,6 +33,8 @@ async fn main() -> Result<()> {
                 json_pretty(stdout, &issue)?;
             }
             IssuesCmd::Search { ref jql, ref opts } => {
+                let jql = to_string(jql)?;
+
                 let options = opts.as_options().with(|this| this.jql(jql));
 
                 let search = client.issues().search(Some(&options)).await?;
@@ -39,14 +43,14 @@ async fn main() -> Result<()> {
             }
             IssuesCmd::Create { ref data, ref opts } => {
                 let options: issue::options::Create = opts.into();
-                let data = DataSpec::try_from(data)?.to_json().await?;
+                let data = to_json(data)?;
 
                 let created = client.issues().create(&data, Some(&options)).await?;
 
                 json_pretty(stdout(), &created)?;
             }
             IssuesCmd::Edit { ref key, ref data } => {
-                let data = DataSpec::try_from(data)?.to_json().await?;
+                let data = to_json(data)?;
 
                 client.issues().edit(key, &data).await?;
 
@@ -75,46 +79,19 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Clone)]
-enum DataSpec {
-    Text(String),
-    FilePath(PathBuf),
-    Stdin,
+fn to_json(i: &grab::Input) -> Result<Box<RawJson>> {
+    let src = i.access()?;
+
+    let json = json::from_reader(src)?;
+
+    Ok(json)
 }
 
-impl DataSpec {
-    pub async fn to_json(self) -> Result<Box<RawJson>> {
-        match self {
-            Self::Text(ref data) => Ok(json::from_str(data)?),
-            Self::FilePath(path) => Ok(json::from_slice(tokio::fs::read(&path).await?.as_ref())?),
-            Self::Stdin => {
-                let mut data = Vec::new();
-                tokio::io::stdin().read_to_end(&mut data).await?;
+fn to_string(i: &grab::Input) -> Result<String> {
+    let mut src = i.access()?;
 
-                Ok(json::from_slice(&data)?)
-            }
-        }
-    }
-}
+    let mut s = String::new();
+    src.read_to_string(&mut s)?;
 
-impl TryFrom<&str> for DataSpec {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
-            "-" => Ok(Self::Stdin),
-            maybe_file => Ok(maybe_file
-                .strip_prefix("@")
-                .map(|path| Self::FilePath(PathBuf::from(path)))
-                .unwrap_or_else(|| Self::Text(maybe_file.to_string()))),
-        }
-    }
-}
-
-impl TryFrom<&String> for DataSpec {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &String) -> Result<Self, Self::Error> {
-        DataSpec::try_from(value.as_str())
-    }
+    Ok(s)
 }

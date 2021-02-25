@@ -1,5 +1,7 @@
 use {super::*, jira_rs::issue::options as IssueOptions};
 
+use grab::Input;
+
 pub mod create;
 pub mod get;
 pub mod meta;
@@ -13,7 +15,7 @@ pub enum Issues {
     Get {
         /// The issue key or id to retrieve
         #[structopt(value_name = "KEY/ID")]
-        key: String,
+        key: Input,
 
         #[structopt(flatten)]
         opts: get::IssuesGet,
@@ -25,7 +27,7 @@ pub enum Issues {
         /// For more information on the Jira Query Language (JQL) visit
         /// https://support.atlassian.com/jira-software-cloud/docs/what-is-advanced-searching-in-jira-cloud
         #[structopt(value_name = "JQL")]
-        jql: String,
+        jql: Input,
 
         #[structopt(flatten)]
         opts: search::IssuesSearch,
@@ -43,7 +45,7 @@ pub enum Issues {
         /// '-' will be treated as stdin
         /// '@<pathspec>' will be treated as a filename to read the data from
         #[structopt(short, long, value_name = "DATA")]
-        data: String,
+        data: Input,
 
         #[structopt(flatten)]
         opts: create::IssueCreate,
@@ -59,6 +61,7 @@ pub enum Issues {
         /// '-' will be treated as stdin
         /// '@<pathspec>' will be treated as a filename to read the data from
         #[structopt(short, long, value_name = "DATA")]
-        data: String,
+        data: Input,
     },
 }
+
