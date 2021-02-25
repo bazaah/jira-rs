@@ -9,6 +9,11 @@ use {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct User<'a> {
     pub active: bool,
+
+    /// A map of dimension keys with URL self link values.
+    ///
+    /// Each key is typically in the form "<INT>x<INT>", e.g
+    /// "16x16", "32x32", etc.
     #[serde(rename = "avatarUrls")]
     pub avatar_urls: HashMap<&'a str, &'a str>,
     #[serde(rename = "displayName")]
@@ -19,6 +24,11 @@ pub struct User<'a> {
     pub name: &'a str,
     #[serde(rename = "self")]
     pub self_link: &'a str,
+
+    /// Timezone of the user, although not done in any conventional
+    /// format, instead using a "<COUNTRY>/<ZONE-OR-CITY>", e.g
+    /// "America/Chicago" format, which as far as I can fits no
+    /// standard anywhere. Go Jira.
     #[serde(rename = "timeZone")]
     pub timezone: Option<&'a str>,
 }
@@ -52,7 +62,7 @@ pub struct IssueType<'a> {
     pub subtask: bool,
 }
 
-// TODO: Investigate where this shows up
+/// A project or product release
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Version<'a> {
     pub archived: bool,
@@ -86,16 +96,29 @@ pub struct Comment<'a> {
     pub id: u64,
     #[serde(rename = "self")]
     pub self_link: &'a str,
+
+    /// The original author of the comment
     pub author: Option<User<'a>>,
+
+    /// The author of the update to this comment (if any)
     #[serde(rename = "updateAuthor")]
     pub update_author: Option<User<'a>>,
+
+    /// A ISO-8601 timestamp of issue creation
     pub created: &'a str,
+
+    /// A ISO-8601 timestamp of the latest update
     pub updated: &'a str,
+
+    /// The comment's text
     pub body: &'a str,
+
+    /// The visibility of the comment, if any is set
     pub visibility: Option<Visibility<'a>>,
 }
 
 // Not all Jira's have this...
+/// The visibility of the associated object.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Visibility<'a> {
     #[serde(rename = "type")]
