@@ -1,5 +1,7 @@
 mod cli;
 
+use tokio::io::AsyncReadExt;
+
 use crate::cli::{CliOptions, Command, Issues as IssuesCmd, MetaKind};
 use {
     anyhow::{anyhow, Result},
@@ -9,7 +11,7 @@ use {
     std::{convert::TryFrom, io::stdout, path::PathBuf},
 };
 
-#[tokio::main(core_threads = 2)]
+#[tokio::main(worker_threads = 2)]
 async fn main() -> Result<()> {
     let cli = CliOptions::new();
 
@@ -82,7 +84,6 @@ enum DataSpec {
 
 impl DataSpec {
     pub async fn to_json(self) -> Result<Box<RawJson>> {
-        use tokio::prelude::*;
         match self {
             Self::Text(ref data) => Ok(json::from_str(data)?),
             Self::FilePath(path) => Ok(json::from_slice(tokio::fs::read(&path).await?.as_ref())?),
