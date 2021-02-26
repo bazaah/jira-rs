@@ -4,8 +4,9 @@ pub mod issue;
 pub mod metadata;
 pub mod search;
 
-pub use {common::*, create::*, issue::*, metadata::*, search::*};
 use {
+    super::cow,
     serde::{Deserialize, Serialize},
-    std::convert::TryFrom,
+    std::{borrow::Cow, convert::TryFrom},
 };
+pub use {common::*, create::*, issue::*, metadata::*, search::*};
