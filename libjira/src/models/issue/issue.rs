@@ -1,7 +1,7 @@
 use jsonp::{Pointer, Segment};
 
 use {
-    super::*,
+    super::{cow::CowStr, *},
     json::{value::RawValue as RawJson, Error as JsonError},
     serde::{Deserializer, Serializer},
     serde_json as json,
@@ -55,17 +55,20 @@ impl Serialize for IssueHandle {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Issue<'a> {
-    #[serde(rename = "self")]
-    pub self_link: &'a str,
+    #[serde(rename = "self", borrow, deserialize_with = "cow::deserialize")]
+    pub self_link: Cow<'a, str>,
     #[serde(with = "common::id")]
     pub id: u64,
-    pub key: &'a str,
-    pub expand: &'a str,
-    pub fields: HashMap<&'a str, &'a RawJson>,
+    #[serde(borrow)]
+    pub key: Cow<'a, str>,
+    #[serde(borrow)]
+    pub expand: Cow<'a, str>,
+    #[serde(borrow)]
+    pub fields: HashMap<Cow<'a, str>, &'a RawJson>,
 
     // Capture any extra fields returned (if any)
     #[serde(flatten)]
-    pub extra: HashMap<&'a str, &'a RawJson>,
+    pub extra: HashMap<Cow<'a, str>, &'a RawJson>,
 }
 
 impl<'a> Issue<'a> {
@@ -303,39 +306,57 @@ impl<'a, 'de: 'a> Deserialize<'de> for Issue<'a> {
                 let dupe = |field| de::Error::duplicate_field(field);
                 let missing = |field| de::Error::missing_field(field);
 
-                let mut self_link = None;
+                let mut self_link: Option<CowStr> = None;
                 let mut id: Option<IdDeserializer> = None;
-                let mut key = None;
-                let mut expand = None;
-                let mut fields = None;
-                let mut extra: Option<HashMap<&str, &RawJson>> = None;
+                let mut key: Option<CowStr> = None;
+                let mut expand: Option<CowStr> = None;
+                let mut fields: Option<HashMap<CowStr, &RawJson>> = None;
+                let mut extra: Option<HashMap<Cow<'_, str>, &RawJson>> = None;
 
-                while let Some(map_key) = access.next_key()? {
+                while let Some(map_key) = access.next_key::<CowStr>()? {
                     match map_key {
-                        Self::SELF_LINK if self_link.is_some() => {
-                            return Err(dupe(Self::SELF_LINK))
+                        k if k == Self::SELF_LINK => {
+                            if self_link.is_some() {
+                                return Err(dupe(Self::SELF_LINK));
+                            }
+                            self_link = Some(access.next_value()?)
                         }
-                        Self::SELF_LINK => self_link = Some(access.next_value()?),
 
-                        Self::ID if id.is_some() => return Err(dupe(Self::ID)),
-                        Self::ID => id = Some(access.next_value()?),
+                        k if k == Self::ID => {
+                            if id.is_some() {
+                                return Err(dupe(Self::ID));
+                            }
+                            id = Some(access.next_value()?)
+                        }
 
-                        Self::KEY if key.is_some() => return Err(dupe(Self::KEY)),
-                        Self::KEY => key = Some(access.next_value()?),
+                        k if k == Self::KEY => {
+                            if key.is_some() {
+                                return Err(dupe(Self::KEY));
+                            }
+                            key = Some(access.next_value()?)
+                        }
 
-                        Self::EXPAND if expand.is_some() => return Err(dupe(Self::EXPAND)),
-                        Self::EXPAND => expand = Some(access.next_value()?),
+                        k if k == Self::EXPAND => {
+                            if expand.is_some() {
+                                return Err(dupe(Self::EXPAND));
+                            }
+                            expand = Some(access.next_value()?)
+                        }
 
-                        Self::FIELDS if fields.is_some() => return Err(dupe(Self::FIELDS)),
-                        Self::FIELDS => fields = Some(access.next_value()?),
+                        k if k == Self::FIELDS => {
+                            if fields.is_some() {
+                                return Err(dupe(Self::FIELDS));
+                            }
+                            fields = Some(access.next_value()?)
+                        }
 
                         unknown => match extra {
                             Some(ref mut map) => {
-                                map.insert(unknown, access.next_value()?);
+                                map.insert(unknown.0, access.next_value()?);
                             }
                             None => {
                                 let mut map = HashMap::new();
-                                map.insert(unknown, access.next_value()?);
+                                map.insert(unknown.0, access.next_value()?);
 
                                 extra = Some(map)
                             }
@@ -343,14 +364,22 @@ impl<'a, 'de: 'a> Deserialize<'de> for Issue<'a> {
                     }
                 }
 
-                Ok(Issue {
-                    self_link: self_link.ok_or_else(|| missing(Self::SELF_LINK))?,
+                let issue = Issue {
+                    self_link: self_link
+                        .map(|s| s.into())
+                        .ok_or_else(|| missing(Self::SELF_LINK))?,
                     id: id.ok_or_else(|| missing(Self::ID))?.value,
-                    key: key.ok_or_else(|| missing(Self::KEY))?,
-                    expand: expand.ok_or_else(|| missing(Self::EXPAND))?,
-                    fields: fields.ok_or_else(|| missing(Self::FIELDS))?,
+                    key: key.map(|s| s.into()).ok_or_else(|| missing(Self::KEY))?,
+                    expand: expand
+                        .map(|s| s.into())
+                        .ok_or_else(|| missing(Self::EXPAND))?,
+                    fields: fields
+                        .map(|map| map.into_iter().map(|(k, v)| (k.0, v)).collect())
+                        .ok_or_else(|| missing(Self::FIELDS))?,
                     extra: extra.unwrap_or_default(),
-                })
+                };
+
+                Ok(issue)
             }
         }
 
@@ -432,6 +461,34 @@ mod tests {
         let issue: Result<Issue, _> = deserialize(&json);
 
         assert!(issue.is_ok())
+    }
+
+    #[test]
+    fn fields_map_borrow() {
+        let json = jbytes(types::issue());
+
+        let issue: Issue = deserialize(&json).unwrap();
+
+        for k in issue.fields.keys() {
+            match k {
+                Cow::Borrowed(_) => {}
+                Cow::Owned(_) => panic!(".fields map key '{}' is not borrowed", k),
+            }
+        }
+    }
+
+    #[test]
+    fn extra_map_borrow() {
+        let json = jbytes(types::issue());
+
+        let issue: Issue = deserialize(&json).unwrap();
+
+        for k in issue.extra.keys() {
+            match k {
+                Cow::Borrowed(_) => {}
+                Cow::Owned(_) => panic!(".extra map key '{}' is not borrowed", k),
+            }
+        }
     }
 
     fn jbytes(json: Json) -> Vec<u8> {
