@@ -54,9 +54,10 @@ impl Serialize for CreatedHandle {
 pub struct Created<'a> {
     #[serde(with = "common::id")]
     id: u64,
-    key: &'a str,
-    #[serde(rename = "self")]
-    self_link: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    key: Cow<'a, str>,
+    #[serde(rename = "self", borrow, deserialize_with = "cow::deserialize")]
+    self_link: Cow<'a, str>,
     // Only exists if a transition was requested in the associated request
     #[serde(skip_serializing_if = "Option::is_none")]
     transition: Option<NestedResponse<'a>>,
