@@ -17,7 +17,8 @@ pub struct MetaCreateHandle {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MetaCreate<'a> {
-    pub expand: Option<&'a str>,
+    #[serde(borrow, deserialize_with = "cow::deserialize_option")]
+    pub expand: Option<Cow<'a, str>>,
     #[serde(borrow)]
     pub projects: Vec<ProjectMeta<'a>>,
 }
@@ -69,8 +70,8 @@ pub struct MetaEditHandle {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct MetaEdit<'a> {
-    #[serde(borrow)]
-    pub fields: HashMap<&'a str, IssueFieldsMeta<'a>>,
+    #[serde(borrow, deserialize_with = "cow::deserialize_k")]
+    pub fields: HashMap<Cow<'a, str>, IssueFieldsMeta<'a>>,
 }
 
 impl MetaEditHandle {
@@ -125,15 +126,16 @@ pub struct IssueTypeMeta<'a> {
     pub issue_type: IssueType<'a>,
     // Only exists when API is queried with 'expand=projects.issues.fields'
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub fields: Option<HashMap<&'a str, IssueFieldsMeta<'a>>>,
+    pub fields: Option<HashMap<Cow<'a, str>, IssueFieldsMeta<'a>>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct IssueFieldsMeta<'a> {
     pub required: bool,
-    pub name: &'a str,
-    #[serde(rename = "fieldId")]
-    pub field_id: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub name: Cow<'a, str>,
+    #[serde(rename = "fieldId", borrow, deserialize_with = "cow::deserialize")]
+    pub field_id: Cow<'a, str>,
     #[serde(rename = "defaultValue", skip_serializing_if = "Option::is_none")]
     pub default: Option<&'a RawJson>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -149,19 +151,34 @@ pub struct FieldSchema<'a> {
     /// One of: any,array,date,issuetype,number,option,
     /// priority,project,string,timestracking,user
     /// Probably has more variants
-    #[serde(rename = "type")]
-    pub field_type: &'a str,
+    #[serde(rename = "type", borrow, deserialize_with = "cow::deserialize")]
+    pub field_type: Cow<'a, str>,
     // Mutually exclusive with 'custom'
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub system: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub custom: Option<&'a str>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        borrow,
+        default,
+        deserialize_with = "cow::deserialize_option"
+    )]
+    pub system: Option<Cow<'a, str>>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        borrow,
+        default,
+        deserialize_with = "cow::deserialize_option"
+    )]
+    pub custom: Option<Cow<'a, str>>,
     // Only exists if 'custom' exists
     #[serde(rename = "customId", skip_serializing_if = "Option::is_none")]
     pub custom_id: Option<u64>,
     // Only exists if 'field_type' == array
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub items: Option<&'a str>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        borrow,
+        default,
+        deserialize_with = "cow::deserialize_option"
+    )]
+    pub items: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
