@@ -1,7 +1,5 @@
 mod cli;
 
-use std::io::Read;
-
 use crate::cli::{CliOptions, Command, Issues as IssuesCmd, MetaKind};
 use {
     anyhow::{anyhow, Result},
@@ -24,7 +22,7 @@ async fn main() -> Result<()> {
     match cli.command {
         Command::Issues(cmd) => match cmd {
             IssuesCmd::Get { ref key, ref opts } => {
-                let key = to_string(key)?;
+                let key = key.access()?.read_to_string()?;
 
                 let options = opts.into();
                 let issue = client.issues().get(key, Some(&options)).await?;
@@ -33,7 +31,7 @@ async fn main() -> Result<()> {
                 json_pretty(stdout, &issue)?;
             }
             IssuesCmd::Search { ref jql, ref opts } => {
-                let jql = to_string(jql)?;
+                let jql = jql.access()?.read_to_string()?;
 
                 let options = opts.as_options().with(|this| this.jql(jql));
 
@@ -87,11 +85,3 @@ fn to_json(i: &grab::Input) -> Result<Box<RawJson>> {
     Ok(json)
 }
 
-fn to_string(i: &grab::Input) -> Result<String> {
-    let mut src = i.access()?;
-
-    let mut s = String::new();
-    src.read_to_string(&mut s)?;
-
-    Ok(s)
-}
