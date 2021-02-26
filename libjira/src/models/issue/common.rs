@@ -14,51 +14,63 @@ pub struct User<'a> {
     ///
     /// Each key is typically in the form "<INT>x<INT>", e.g
     /// "16x16", "32x32", etc.
-    #[serde(rename = "avatarUrls")]
-    pub avatar_urls: HashMap<&'a str, &'a str>,
-    #[serde(rename = "displayName")]
-    pub display_name: &'a str,
-    #[serde(rename = "emailAddress")]
-    pub email_address: &'a str,
-    pub key: Option<&'a str>,
-    pub name: &'a str,
-    #[serde(rename = "self")]
-    pub self_link: &'a str,
+    #[serde(
+        rename = "avatarUrls",
+        borrow,
+        deserialize_with = "cow::deserialize_kv"
+    )]
+    pub avatar_urls: HashMap<Cow<'a, str>, Cow<'a, str>>,
+    #[serde(rename = "displayName", borrow, deserialize_with = "cow::deserialize")]
+    pub display_name: Cow<'a, str>,
+    #[serde(rename = "emailAddress", borrow, deserialize_with = "cow::deserialize")]
+    pub email_address: Cow<'a, str>,
+    #[serde(default, borrow, deserialize_with = "cow::deserialize_option")]
+    pub key: Option<Cow<'a, str>>,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub name: Cow<'a, str>,
+    #[serde(rename = "self", borrow, deserialize_with = "cow::deserialize")]
+    pub self_link: Cow<'a, str>,
 
-    /// Timezone of the user, although not done in any conventional
-    /// format, instead using a "<COUNTRY>/<ZONE-OR-CITY>", e.g
-    /// "America/Chicago" format, which as far as I can fits no
-    /// standard anywhere. Go Jira.
-    #[serde(rename = "timeZone")]
-    pub timezone: Option<&'a str>,
+    /// Timezone of the user, in ISO standard <COUNTRY>/<ZONE-OR-CITY> format
+    #[serde(
+        rename = "timeZone",
+        default,
+        borrow,
+        deserialize_with = "cow::deserialize_option"
+    )]
+    pub timezone: Option<Cow<'a, str>>,
 }
 
 /// Representation of the current status of
 /// the issue, examples include: "In Progress", "Testing", "Done"
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Status<'a> {
-    pub description: &'a str,
-    #[serde(rename = "iconUrl")]
-    pub icon_url: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub description: Cow<'a, str>,
+    #[serde(rename = "iconUrl", borrow, deserialize_with = "cow::deserialize")]
+    pub icon_url: Cow<'a, str>,
     #[serde(with = "id")]
     pub id: u64,
-    pub name: &'a str,
-    #[serde(rename = "self")]
-    pub self_link: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub name: Cow<'a, str>,
+    #[serde(rename = "self", borrow, deserialize_with = "cow::deserialize")]
+    pub self_link: Cow<'a, str>,
     // TODO: Add statusCategory as optional
 }
 
 /// The issue kind, examples include: "Story", "Epic"
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct IssueType<'a> {
-    pub description: &'a str,
-    #[serde(rename = "iconUrl")]
-    pub icon_url: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub description: Cow<'a, str>,
+    #[serde(rename = "iconUrl", borrow, deserialize_with = "cow::deserialize")]
+    pub icon_url: Cow<'a, str>,
     #[serde(with = "id")]
     pub id: u64,
-    pub name: &'a str,
-    #[serde(rename = "self")]
-    pub self_link: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub name: Cow<'a, str>,
+    #[serde(rename = "self", borrow, deserialize_with = "cow::deserialize")]
+    pub self_link: Cow<'a, str>,
     pub subtask: bool,
 }
 
@@ -68,10 +80,11 @@ pub struct Version<'a> {
     pub archived: bool,
     #[serde(with = "id")]
     pub id: u64,
-    pub name: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub name: Cow<'a, str>,
     pub released: bool,
-    #[serde(rename = "self")]
-    pub self_link: &'a str,
+    #[serde(rename = "self", borrow, deserialize_with = "cow::deserialize")]
+    pub self_link: Cow<'a, str>,
 }
 
 // Wrapper struct for flattening Jira's json
@@ -94,8 +107,8 @@ impl<'a> Into<Vec<Comment<'a>>> for Comments<'a> {
 pub struct Comment<'a> {
     #[serde(with = "id")]
     pub id: u64,
-    #[serde(rename = "self")]
-    pub self_link: &'a str,
+    #[serde(rename = "self", borrow, deserialize_with = "cow::deserialize")]
+    pub self_link: Cow<'a, str>,
 
     /// The original author of the comment
     pub author: Option<User<'a>>,
@@ -105,13 +118,16 @@ pub struct Comment<'a> {
     pub update_author: Option<User<'a>>,
 
     /// A ISO-8601 timestamp of issue creation
-    pub created: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub created: Cow<'a, str>,
 
     /// A ISO-8601 timestamp of the latest update
-    pub updated: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub updated: Cow<'a, str>,
 
     /// The comment's text
-    pub body: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub body: Cow<'a, str>,
 
     /// The visibility of the comment, if any is set
     pub visibility: Option<Visibility<'a>>,
@@ -121,27 +137,30 @@ pub struct Comment<'a> {
 /// The visibility of the associated object.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Visibility<'a> {
-    #[serde(rename = "type")]
-    pub visibility_type: &'a str,
-    pub value: &'a str,
+    #[serde(rename = "type", borrow, deserialize_with = "cow::deserialize")]
+    pub visibility_type: Cow<'a, str>,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub value: Cow<'a, str>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Project<'a> {
     #[serde(with = "id")]
     pub id: u64,
-    #[serde(rename = "self")]
-    pub self_link: &'a str,
-    pub key: &'a str,
-    pub name: &'a str,
+    #[serde(rename = "self", borrow, deserialize_with = "cow::deserialize")]
+    pub self_link: Cow<'a, str>,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub key: Cow<'a, str>,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub name: Cow<'a, str>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct IssueLink<'a> {
     #[serde(with = "id")]
     pub id: u64,
-    #[serde(rename = "self")]
-    pub self_link: &'a str,
+    #[serde(rename = "self", borrow, deserialize_with = "cow::deserialize")]
+    pub self_link: Cow<'a, str>,
     #[serde(rename = "outwardIssue")]
     pub outward_issue: Option<Issue<'a>>,
     #[serde(rename = "inwardIssue")]
@@ -154,43 +173,52 @@ pub struct IssueLink<'a> {
 pub struct LinkType<'a> {
     #[serde(with = "id")]
     pub id: u64,
-    pub inward: &'a str,
-    pub name: &'a str,
-    pub outward: &'a str,
-    #[serde(rename = "self")]
-    pub self_link: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub inward: Cow<'a, str>,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub name: Cow<'a, str>,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub outward: Cow<'a, str>,
+    #[serde(rename = "self", borrow, deserialize_with = "cow::deserialize")]
+    pub self_link: Cow<'a, str>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Resolution<'a> {
-    name: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    name: Cow<'a, str>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Attachment<'a> {
     #[serde(with = "id")]
     pub id: u64,
-    #[serde(rename = "self")]
-    pub self_link: &'a str,
-    pub filename: &'a str,
+    #[serde(rename = "self", borrow, deserialize_with = "cow::deserialize")]
+    pub self_link: Cow<'a, str>,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub filename: Cow<'a, str>,
     pub author: User<'a>,
-    pub created: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub created: Cow<'a, str>,
     pub size: u64,
-    #[serde(rename = "mimeType")]
-    pub mime_type: &'a str,
-    pub content: &'a str,
-    pub thumbnail: Option<&'a str>,
+    #[serde(rename = "mimeType", borrow, deserialize_with = "cow::deserialize")]
+    pub mime_type: Cow<'a, str>,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub content: Cow<'a, str>,
+    #[serde(default, borrow, deserialize_with = "cow::deserialize_option")]
+    pub thumbnail: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Priority<'a> {
-    #[serde(rename = "iconUrl")]
-    pub icon_url: &'a str,
+    #[serde(rename = "iconUrl", borrow, deserialize_with = "cow::deserialize")]
+    pub icon_url: Cow<'a, str>,
     #[serde(with = "id")]
     pub id: u64,
-    pub name: &'a str,
-    #[serde(rename = "self")]
-    pub self_link: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub name: Cow<'a, str>,
+    #[serde(rename = "self", borrow, deserialize_with = "cow::deserialize")]
+    pub self_link: Cow<'a, str>,
 }
 
 /// One of the flavours of response returned by some
@@ -222,8 +250,9 @@ where
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ErrorCollection<'a> {
     #[serde(rename = "errorMessages", borrow)]
-    pub messages: Vec<&'a str>,
-    pub errors: HashMap<&'a str, &'a str>,
+    pub messages: Vec<Cow<'a, str>>,
+    #[serde(borrow, deserialize_with = "cow::deserialize_kv")]
+    pub errors: HashMap<Cow<'a, str>, Cow<'a, str>>,
 }
 
 impl<'a> ErrorCollection<'a> {
