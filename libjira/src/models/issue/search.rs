@@ -51,7 +51,8 @@ impl Serialize for SearchHandle {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Search<'a> {
-    pub expand: &'a str,
+    #[serde(borrow, deserialize_with = "cow::deserialize")]
+    pub expand: Cow<'a, str>,
     #[serde(rename = "maxResults")]
     pub max_results: u64,
     #[serde(rename = "startAt")]
