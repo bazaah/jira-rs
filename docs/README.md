@@ -13,9 +13,13 @@ If you are interested in it being published please open an issue.
 
 ## Under Development
 
-- [x] options/unit-tests
-- [x] models/unit-tests
-- [ ] models/documentation
+- [x] libjira:options/unit-tests
+- [x] libjira:models/unit-tests
+- [x] libjira:models/cow
+- [ ] editor:expose API for `$EDITOR` usage
+- [ ] mdtoj:expose API for `.md` -> `jira` formatter
+- [ ] cli:issues/create using `$EDITOR`
+- [ ] libjira:models/documentation
 
 ## Prior Work
 
